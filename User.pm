@@ -769,7 +769,7 @@ sub handle_mode {
 	} elsif($byte eq "-") {
 	  $state = 0;
 	} else {
-	  if(!$this->ismode('o')) {
+	  if(!$this->ismode('o') && $byte =~ /\w/) {
 	    next MODEBYTE if grep {/$byte/} ("o","g");
 	  }
 	  if(!$this->ismode('g')) {
@@ -1024,6 +1024,7 @@ sub isoper {
 
 sub isvalidusermode {
   my $mode = shift;
+  if($mode =~ /\W/) { return 0; }
   if(grep {/$mode/} ("d","i","o","s","w","k","g")) {
     return 1;
   } else {
