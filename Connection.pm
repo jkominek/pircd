@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Fri Feb 12 12:18:25 1999 by jay.kominek@colorado.edu
+# Revised: Sun Feb 21 20:36:31 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -24,7 +24,7 @@ sub new {
   my $class = ref($proto) || $proto;
   my $this  = { };
 
-  $this->{'socket'}      = shift;
+  $this->{'socket'}    = shift;
   $this->{outbuffer}   = shift;
   $this->{server}      = shift;
   $this->{connected} = $this->{last_active} = time();
@@ -56,7 +56,7 @@ sub handle {
  SWITCH: {
     if($line =~ /^PONG/i) {
       my($command,$response) = split(/\s+/,$line);
-      if($this->{doing_nospoof}>0) {
+       if($this->{doing_nospoof}>0) {
 	$response =~ s/^://;
 	if($response eq $this->{doing_nospoof}) {
 	  $this->{doing_nospoof} = -1;
@@ -151,6 +151,11 @@ sub readytofinalize {
   }
 }
 
+sub server {
+  my $this = shift;
+  return $this->{'server'};
+}
+
 sub finalize {
   my $this = shift;
   if($this->{nick}) {
@@ -196,9 +201,9 @@ sub sendnumeric {
 
   if(defined($msg)) {
     $msg=":".$msg;
-    $this->senddata(":".join(' ',$fromstr,$numeric,$this->nick,@arguments,$msg)."\r\n");
+    $this->senddata(":".join(' ',$fromstr,$numeric,'*',@arguments,$msg)."\r\n");
   } else {
-    $this->senddata(":".join(' ',$fromstr,$numeric,$this->nick,@arguments)."\r\n");
+    $this->senddata(":".join(' ',$fromstr,$numeric,'*',@arguments)."\r\n");
   }
 }
 
