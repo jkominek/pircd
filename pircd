@@ -2,7 +2,7 @@
 # 
 # pircd
 # Created: Mon Sep 14 12:55:01 1998 by jay.kominek@colorado.edu
-# Revised: Fri Feb 12 12:18:15 1999 by jay.kominek@colorado.edu
+# Revised: Sat Feb 13 23:11:43 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -117,7 +117,7 @@ for(;;) {
       $inbuffer{$client} .= $data;
       # We only want to pass whole lines to the input handling code.
       while($inbuffer{$client} =~ s/(.*\n)$//) {
-	push(@{$ready{$client}},$1);
+	unshift(@{$ready{$client}},$1);
       }
     } else {
       # We've got activity on a martian socket!
@@ -141,38 +141,6 @@ for(;;) {
     }
     # and then get rid of the lines.
     delete($ready{$client});
-  }
-
-  # Look to see which of our sockets can be written to at the moment
-  foreach $client ($select->can_write(1)) {
-    # Skip it if we don't have anything available to send it.
-    next unless $outbuffer{$client};
-    # Actually attempt to send some of the data.
-    my $sent = $client->send($outbuffer{$client},0);
-    if(!defined($sent)) { next; }
-    # If we couldn't manage to send the whole thing, then trim what we
-    #  did manage to send them out of the out-going buffer so we don't
-    #  send it again.
-    if(($sent==length($outbuffer{$client}))||
-       ($!   ==POSIX::EWOULDBLOCK)) {
-      substr($outbuffer{$client},0,$sent) = '';
-      if(!length($outbuffer{$client})) {
-	delete($outbuffer{$client});
-      }
-    } else {
-      # Uhh ohh. We couldn't write to their socket, so we cut them
-      #  loose with a Write error signoff message.
-      if($connections{$client}->isa("User")) {
-	my $user = $connections{$client};
-	$user->quit("Write error to ".$user->nick."[".$user->host."]");
-      } elsif($connections{$client}->isa("Server")) {
-	$connections{$client}->squit();
-      } else {
-	# Bleh. I'm too lazy to figure out what should be done about
-	#  Connection objects. Probably just delete them.
-      }
-      next;
-    }
   }
 
   # This stuff handles testing the connectivity of all the
@@ -224,6 +192,38 @@ for(;;) {
       delete($unfinished{$client});
     }
   }
+
+  # Look to see which of our sockets can be written to at the moment
+  foreach $client ($select->can_write(1)) {
+    # Skip it if we don't have anything available to send it.
+    next unless $outbuffer{$client};
+    # Actually attempt to send some of the data.
+    my $sent = $client->send($outbuffer{$client},0);
+    if(!defined($sent)) { next; }
+    # If we couldn't manage to send the whole thing, then trim what we
+    #  did manage to send them out of the out-going buffer so we don't
+    #  send it again.
+    if(($sent==length($outbuffer{$client}))||
+       ($!   ==POSIX::EWOULDBLOCK)) {
+      substr($outbuffer{$client},0,$sent) = '';
+      if(!length($outbuffer{$client})) {
+	delete($outbuffer{$client});
+      }
+    } else {
+      # Uhh ohh. We couldn't write to their socket, so we cut them
+      #  loose with a Write error signoff message.
+      if($connections{$client}->isa("User")) {
+	my $user = $connections{$client};
+	$user->quit("Write error to ".$user->nick."[".$user->host."]");
+      } elsif($connections{$client}->isa("Server")) {
+	$connections{$client}->squit();
+      } else {
+	# Bleh. I'm too lazy to figure out what should be done about
+	#  Connection objects. Probably just delete them.
+      }
+      next;
+    }
+  }
 }
 
 sub finishclient {
@@ -233,16 +233,11 @@ sub finishclient {
   delete($ready{$client});
   delete($outbuffer{$client});
   delete($inbuffer{$client});
-  if($connections{$client}->isa("User")) {
-    # If they're a user, remove their user object
-    delete(Utils::users->{$connections{$client}->lcnick()});
-  } elsif($connections{$client}->isa("Server")) {
-    # And if they're a server, remove their server object
-    delete(Utils::servers->{$connections{$client}->lcname()});
-  } else {
-    # Otherwise they're just a connection, so remove that
+  if($connections{$client}->isa("Connection")) {
+    # We deal with Connections
     delete($unfinished{$client});
   }
+  # Users and Servers have to take care of themselves, though
   delete($connections{$client});
   # Don't want to wait on the socket any more..
   $select->remove($client);
