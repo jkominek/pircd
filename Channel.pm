@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Mon Nov 30 17:43:06 1998 by jay.kominek@colorado.edu
+# Revised: Sat Feb  6 10:10:51 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -41,7 +41,7 @@ sub new {
   my $class = ref($proto) || $proto;
   my $this  = { };
 
-  $this->{name} = shift;
+  $this->{'name'} = shift;
   my %tmp = ();
   $this->{bans} = \%tmp;
   $this->{creation} = time();
@@ -57,27 +57,27 @@ sub new {
 # Get the name of this channel
 sub name {
   my $this = shift;
-  return $this->{name};
+  return $this->{'name'};
 }
 
 # Get the name of this channel in a form suitable for
 # keying a hash.
 sub lcname {
   my $this = shift;
-  my $tmp  = $this->{name};
+  my $tmp  = $this->{'name'};
   $tmp     =~ tr/A-Z\[\]\\/a-z\{\}\|/;
   return $tmp;
 }
 
 sub users {
   my $this = shift;
-  my @tmp = values(%{$this->{users}});
+  my @tmp = values(%{$this->{'users'}});
   return @tmp;
 }
 
 sub userhash {
   my $this = shift;
-  return $this->{users};
+  return $this->{'users'};
 }
 
 # Sends the user /names output
@@ -87,12 +87,12 @@ sub names {
 
   my @lists;
   my($index,$count) = (0,0);
-  foreach(keys(%{$this->{users}})) {
+  foreach(keys(%{$this->{'users'}})) {
     if($count>60) { $index++; $count = 0; }
-    my $nick = $this->{users}->{$_}->nick;
-    if($this->isop($this->{users}->{$_})) {
+    my $nick = $this->{'users'}->{$_}->nick;
+    if($this->isop($this->{'users'}->{$_})) {
       $nick = "@".$nick;
-    } elsif($this->hasvoice($this->{users}->{$_})) {
+    } elsif($this->hasvoice($this->{'users'}->{$_})) {
       $nick = "+".$nick;
     }
     push(@{$lists[$index]},$nick);
@@ -386,7 +386,7 @@ sub mode {
       if($#accomplishedargs>=0) {
 	$changestr = $changestr.join(' ','',@accomplishedargs);
       }
-      foreach(values(%{$this->{users}})) {
+      foreach(values(%{$this->{'users'}})) {
 	if($_->islocal()) {
 	  $_->senddata(":".$user->nick."!".$user->username."\@".$user->host." MODE ".$this->name." :$changestr\r\n");
 	}
@@ -403,20 +403,20 @@ sub topic {
   my $topic = shift;
   if(defined($user) && defined($topic)) {
     unless($this->ismode('t') && (!$this->isop($user))) {
-      $this->{topic}        = $topic;
+      $this->{'topic'}        = $topic;
       $this->{topicsetter}  = $user->nick;
       $this->{topicsettime} = time();
-      foreach(keys(%{$this->{users}})) {
-	if($this->{users}->{$_}->islocal()) {
-	  $this->{users}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." TOPIC ".$this->name." :$topic\r\n");
+      foreach(keys(%{$this->{'users'}})) {
+	if($this->{'users'}->{$_}->islocal()) {
+	  $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." TOPIC ".$this->name." :$topic\r\n");
 	}
       }
     } else {
       $user->senddata(":".$user->server->name." 482 ".$user->nick." ".$this->name." :You're not a channel operator\r\n");
     }
   } else {
-    if($this->{topic}) {
-      return ($this->{topic},$this->{topicsetter},$this->{topicsettime});
+    if($this->{'topic'}) {
+      return ($this->{'topic'},$this->{topicsetter},$this->{topicsettime});
     } else {
       return undef;
     }
@@ -473,7 +473,7 @@ sub join {
   
     # Test to see if the channel is over the current population limit.
     if(($this->ismode('l')) &&
-       ((1+scalar keys(%{$this->{users}}))>$this->{limit})) {
+       ((1+scalar keys(%{$this->{'users'}}))>$this->{limit})) {
       $user->senddata(":".$user->server->name." 471 ".$user->nick." ".$this->name." :Cannot join channel (+l)\r\n");
       return;
     }
@@ -482,16 +482,16 @@ sub join {
   }
 
   $user->{channels}->{$this->lcname()} = $this;
-  $this->{users}->{$user->lcnick()}    = $user;
-  if(1==scalar keys(%{$this->{users}})) {
+  $this->{'users'}->{$user->lcnick()}    = $user;
+  if(1==scalar keys(%{$this->{'users'}})) {
     $this->setop($user);
   }
-  foreach(keys(%{$this->{users}})) {
-    if($this->{users}->{$_}->islocal()) {
-      $this->{users}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." JOIN :".$this->name."\r\n");
+  foreach(keys(%{$this->{'users'}})) {
+    if($this->{'users'}->{$_}->islocal()) {
+      $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." JOIN :".$this->name."\r\n");
     }
   }
-  if(defined($this->{topic})) {
+  if(defined($this->{'topic'})) {
     $this->topic($user);
   }
   $this->names($user);
@@ -509,10 +509,10 @@ sub force_join {
                       # we don't tell it.
 
   Utils::channels()->{$this->lcname()} = $this;
-  $this->{users}->{$user->lcnick()} = $user;
-  foreach(keys(%{$this->{users}})) {
-    if($this->{users}->{$_}->islocal()) {
-      $this->{users}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." JOIN :".$this->name."\r\n");
+  $this->{'users'}->{$user->lcnick()} = $user;
+  foreach(keys(%{$this->{'users'}})) {
+    if($this->{'users'}->{$_}->islocal()) {
+      $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." JOIN :".$this->name."\r\n");
     }
   }
   # Now tell all the other servers..
@@ -525,14 +525,14 @@ sub part {
   my $server = shift;
 
   delete($user->{channels}->{$this->lcname()});
-  foreach(keys(%{$this->{users}})) {
-    if($this->{users}->{$_}->islocal()) {
-      $this->{users}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." PART :".$this->name."\r\n");
+  foreach(keys(%{$this->{'users'}})) {
+    if($this->{'users'}->{$_}->islocal()) {
+      $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." PART :".$this->name."\r\n");
     }
   }
-  delete($this->{users}->{$user->lcnick()});
+  delete($this->{'users'}->{$user->lcnick()});
 
-  if(0==scalar keys(%{$this->{users}})) {
+  if(0==scalar keys(%{$this->{'users'}})) {
     delete(Utils::channels()->{$this->lcname()});
   }
 
@@ -554,18 +554,18 @@ sub kick {
       return;
     }
     delete($sap->{channels}->{$this->lcname()});
-    foreach(keys(%{$this->{users}})) {
-      if($this->{users}->{$_}->islocal()) {
+    foreach(keys(%{$this->{'users'}})) {
+      if($this->{'users'}->{$_}->islocal()) {
 
 	$user->nick;
 
 	$sap->nick;
 
-	$this->{users}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." KICK ".$this->name." ".$sap->nick." :$excuse\r\n");
+	$this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." KICK ".$this->name." ".$sap->nick." :$excuse\r\n");
       }
     }
-    delete($this->{users}->{$sap->lcnick()});
-    if(0==scalar keys(%{$this->{users}})) {
+    delete($this->{'users'}->{$sap->lcnick()});
+    if(0==scalar keys(%{$this->{'users'}})) {
       delete(Utils::channels()->{$this->lcname()});
     }
   } else {
@@ -596,7 +596,7 @@ sub checkvalidtosend {
   my $this = shift;
   my $user = shift;
 
-  if($this->ismode('n') && (!defined($this->{users}->{$user->lcnick()}))) {
+  if($this->ismode('n') && (!defined($this->{'users'}->{$user->lcnick()}))) {
     $user->senddata(":".$user->server->name." 404 ".$user->nick." ".$this->name." Cannot send to channel.\r\n");
     return 0;
   }
@@ -621,9 +621,9 @@ sub privmsg {
     return;
   }
 
-  foreach(keys(%{$this->{users}})) {
-    if(($this->{users}->{$_} ne $user)&&($this->{users}->{$_}->islocal())) {
-      $this->{users}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." PRIVMSG ".$this->name." :$msg\r\n");
+  foreach(keys(%{$this->{'users'}})) {
+    if(($this->{'users'}->{$_} ne $user)&&($this->{'users'}->{$_}->islocal())) {
+      $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." PRIVMSG ".$this->name." :$msg\r\n");
     }
   }
   # We need something to disseminate the message to other servers
@@ -638,9 +638,9 @@ sub notice {
     return;
   }
 
-  foreach(keys(%{$this->{users}})) {
-    if(($this->{users}->{$_} ne $user)&&($this->{users}->{$_}->islocal())) {
-      $this->{users}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." NOTICE ".$this->name." :$msg\r\n");
+  foreach(keys(%{$this->{'users'}})) {
+    if(($this->{'users'}->{$_} ne $user)&&($this->{'users'}->{$_}->islocal())) {
+      $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." NOTICE ".$this->name." :$msg\r\n");
     }
   }
   # We need something to disseminate the message to other servers
@@ -652,12 +652,12 @@ sub notifyofquit {
   my $user = shift;
   my $msg  = shift;
 
-  delete($this->{users}->{$user->lcnick()});
-  foreach(keys(%{$this->{users}})) {
-    $this->{users}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." QUIT :$msg\r\n");
+  delete($this->{'users'}->{$user->lcnick()});
+  foreach(keys(%{$this->{'users'}})) {
+    $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." QUIT :$msg\r\n");
   }
 
-  if(0==scalar keys(%{$this->{users}})) {
+  if(0==scalar keys(%{$this->{'users'}})) {
     delete(Utils::channels()->{$this->lcname()});
   }
 }

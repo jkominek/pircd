@@ -2,7 +2,7 @@
 # 
 # LocalServer.pm
 # Created: Sat Sep 26 18:11:12 1998 by jay.kominek@colorado.edu
-# Revised: Wed Dec  2 21:54:31 1998 by jay.kominek@colorado.edu
+# Revised: Sat Feb  6 10:08:58 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -102,7 +102,7 @@ sub rehash {
   my $this = shift;
   my $from = shift;
   my $user;
-  foreach $user (values(%{$this->{users}})) {
+  foreach $user (values(%{$this->{'users'}})) {
     if($user->ismode('s')) {
       $user->notice($this,"*** Notice -- ".$from->nick." is rehashing Server config file");
     }
@@ -115,7 +115,7 @@ sub opernotify {
   my $msg  = shift;
 
   my $user;
-  foreach $user (values(%{$this->{users}})) {
+  foreach $user (values(%{$this->{'users'}})) {
     if($user->ismode('o')) {
       $user->notice($this,"*** Notice --- $msg");
     }
@@ -130,30 +130,30 @@ sub opernotify {
 # Provides the name of this IRC server
 sub name {
   my $this = shift;
-  return $this->{name};
+  return $this->{'name'};
 }
 
 sub lcname {
   my $this = shift;
-  my $tmp  = $this->{name};
+  my $tmp  = $this->{'name'};
   $tmp     =~ tr/A-Z\[\]\\/a-z\{\}\|/;
   return $tmp;
 }
 
 sub description {
   my $this = shift;
-  return $this->{description};
+  return $this->{'description'};
 }
 
 sub users {
   my $this = shift;
-  my @foo = values(%{$this->{users}});
+  my @foo = values(%{$this->{'users'}});
   return @foo;
 }
 
 sub children {
   my $this = shift;
-  my @foo  = values(%{$this->{children}});
+  my @foo  = values(%{$this->{'children'}});
   return @foo;
 }
 
@@ -178,20 +178,20 @@ sub creation {
 # Returns the MOTD of the server as an array of lines.
 sub getmotd {
   my $this = shift;
-  return @{$this->{motd}};
+  return @{$this->{'motd'}};
 }
 
 # Same thing as getmotd, except for the admin information
 sub getadmin {
   my $this = shift;
-  return @{$this->{admin}};
+  return @{$this->{'admin'}};
 }
 
 sub getopers {
   my $this = shift;
   my %tmp = ();
-  if(defined($this->{opers})) {
-    return $this->{opers};
+  if(defined($this->{'opers'})) {
+    return $this->{'opers'};
   } else {
     return \%tmp;
   }
@@ -204,7 +204,7 @@ sub getopers {
 sub adduser {
   my $this = shift;
   my $user = shift;
-  $this->{users}->{$user->lcnick()} = $user;
+  $this->{'users'}->{$user->lcnick()} = $user;
 }
 
 sub removeuser {
@@ -218,13 +218,13 @@ sub removeuser {
     $nick = $user;
   }
 
-  delete($this->{users}->{$nick});
+  delete($this->{'users'}->{$nick});
 }
 
 sub addchildserver {
   my $this  = shift;
   my $child = shift;
-  $this->{children}->{$child->lcname()} = $child;
+  $this->{'children'}->{$child->lcname()} = $child;
 }
 
 sub removechildserver {
@@ -237,7 +237,7 @@ sub removechildserver {
   } else {
     $name = $child;
   }
-  delete($this->{children}->{$name});
+  delete($this->{'children'}->{$name});
 }
 
 1;
