@@ -448,12 +448,24 @@ sub handle_who {
     my $ret = Utils::lookup($target);
     if(defined($ret)) {
       if($ret->isa("User")) {
-	$this->sendnumeric($this->server,352,("*",$ret->username,$ret->host,$ret->server->{name},$ret->nick,"H"),$ret->server->hops." ".$ret->ircname);
+	$this->sendnumeric($this->server,352,("*",$ret->username,
+					      $ret->host,$ret->server->{name},
+					      $ret->nick,
+					      (defined($ret->away())?"G":"H").
+					      ($ret->ismode('o')?'*':'')),
+			   $ret->server->hops." ".$ret->ircname);
       } elsif($ret->isa("Channel")) {
 	unless(($ret->ismode('s'))&&(!defined($ret->{users}->{$this->nick()}))&&(!$this->ismode('g'))) {
 	  my @users = $ret->users();
 	  foreach my $user (@users) {
-	    $this->sendnumeric($this->server,352,($ret->{name},$user->username,$user->host,$user->server->{name},$user->nick,"H"),$user->server->hops." ".$user->ircname);
+	    $this->sendnumeric($this->server,352,
+			       ($ret->{name}, $user->username,$user->host,
+				$user->server->{name},$user->nick,
+				(defined($user->away())?'G':'H').
+				($user->ismode('o')?'*':'').
+				($ret->isop($user)?'@':
+				 ($ret->hasvoice($user)?'+':''))),
+			       $user->server->hops." ".$user->ircname);
 	  }
 	}
       } elsif($ret->isa("Server")) {
@@ -516,7 +528,8 @@ sub handle_userhost {
   foreach my $target (split(/\s+/,$targets)) {
     my $ret = Utils::lookupuser($target);
     if(defined $ret) {
-      push(@results,$ret->nick."=".(defined($ret->away)?"-":"+").$ret->username."\@".$ret->host);
+      push(@results,$ret->nick."=".(defined($ret->away())?"-":"+").
+	   $ret->username."\@".$ret->host);
     }
   }
   $this->sendnumeric($this->server,302,join(' ',@results));
