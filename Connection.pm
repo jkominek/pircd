@@ -223,7 +223,7 @@ sub sendreply {
     } elsif(defined($src)) {
       $fromstr=":$$src{nick}!$$src{user}\@$$src{host}";
     } else {
-      $fromstr=":${$$this{server}}{name}";
+      $fromstr=":${$$this{'server'}}{'name'}";
     }
     ($repcode,$data)=$reply=~/(\S*)(.*)/;
     if($repcode=~/>/) {
@@ -266,13 +266,13 @@ sub donick {
     $this->{'nick'}    = $newnick;
     $this->senddata(":$$this{oldnick}!$$this{user}\@$$this{host} NICK :".$this->{'nick'}."\r\n");
     if ($this->isa('User')) {	# not just an unpromoted connection
-      unshift @Utils::nickhistory, { nick => $this->{'oldnick'},
-				     newnick => $this->{'nick'},
-				     username => $this->username,
-				     host => $this->host,
-				     ircname => $this->ircname,
-				     server => $this->server->name,
-				     time => time };
+      unshift @Utils::nickhistory, { 'nick' => $this->{'oldnick'},
+				     'newnick' => $this->{'nick'},
+				     'username' => $this->username,
+				     'host' => $this->host,
+				     'ircname' => $this->ircname,
+				     'server' => $this->server->name,
+				     'time' => time };
       delete(Utils::users()->{$this->{'oldnick'}});
       Utils::users()->{$this->{'nick'}}=$this;
       $this->server->removeuser($this->{'oldnick'});
