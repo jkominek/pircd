@@ -44,10 +44,6 @@ my $port        = 6667;
 my $backlog     = 10;
 my $daemon      = 0;
 my $conf        = "server.conf";
-my $PINGTIME=90; # number of idle seconds before a ping check
-my $FLOODOFFBYTES=2048; # if you've triggered the flood kungfu and you have
-                        # more than this number of bytes in your inbuffer,
-                        # you die.
 
 # Parse the command line
 use Getopt::Std;
@@ -99,9 +95,9 @@ if(!$daemon) {
 
 for(;;) {
   my $client;
-  my $time = time();
+  my $time;
 
-  foreach $client ($select->can_read(0.02)) {
+  foreach $client ($select->can_read(0.5)) {
     if($client == $server) {
       # Activity on the listening socket means we have a new
       # client attempting to connect.
@@ -110,10 +106,12 @@ for(;;) {
       $client = $server->accept;
       $select->add($client);
       &setnonblocking($client);
-      $connections{$client} = Connection->new($client,\%outbuffer,$Utils::thisserver);
+      $connections{$client} = Connection->new($client, \%outbuffer,
+                                              $Utils::thisserver);
       $unfinished{$client}  = $connections{$client};
     } elsif(defined($connections{$client})) {
       # It is not the listening socket, so it is probably a client
+      $time = time();
       $timer{$client} = $time if $timer{$client} < $time;
       my($data,$got);
       $got = $client->recv($data,POSIX::BUFSIZ,0);
@@ -136,9 +134,11 @@ for(;;) {
     }
   }
 
+  $time = time();
+
   foreach $client (keys %inbuffer) {
     # if we got a whole line(s), process it
-    while(($timer{$client}-10<=$time) &&
+    while(($timer{$client} - $Utils::thisserver->{'mechanics'}->{FLOODOFFLINES} <= $time) &&
 	  (($theline, $therest)=$inbuffer{$client}=~/([^\n]*)\n(.*)/s)) {
       $inbuffer{$client}=$therest;
       # if the client used CRLF, strip the "\r"
@@ -147,16 +147,23 @@ for(;;) {
       $connections{$client}->handle($theline);
       $timer{$client}++;
     }
+
+    if(length $inbuffer{$client} > $Utils::thisserver->{'mechanics'}->{FLOODOFFBYTES}) {
+      $connections{$client}->quit("Flood");
+    }
   }
 
   # This stuff handles testing the connectivity of all the
   #  connections.
   foreach $client (keys %connections) {
       my $idle = $time - $connections{$client}->last_active();
-      if(($idle>90)&&(!$connections{$client}->ping_in_air())) {
+      if(($idle>$Utils::thisserver->{'mechanics'}->{PINGCHECKTIME})&&
+          (!$connections{$client}->ping_in_air())) {
 	  # send anyone who's been idle too long a ping
 	  $connections{$client}->ping();
-      } elsif(($idle>2*$PINGTIME)&&($connections{$client}->ping_in_air())) {
+      } elsif(($idle > $Utils::thisserver->{'mechanics'}->{PINGCHECKTIME} +
+                       $Utils::thisserver->{'mechanics'}->{PINGOUTTIME}) &&
+              ($connections{$client}->ping_in_air())) {
 	  # if they don't respond, send them to hell
 	  if($connections{$client}->isa("Server")) {
 	      $connections{$client}->squit("Ping timeout");
@@ -200,7 +207,7 @@ for(;;) {
   }
 
   # Look to see which of our sockets can be written to at the moment
-  foreach $client ($select->can_write(0.02)) {
+  foreach $client ($select->can_write(0.5)) {
     # Skip it if we don't have anything available to send it.
     next unless $outbuffer{$client};
     # Actually attempt to send some of the data.
@@ -228,12 +235,6 @@ for(;;) {
 	#  Connection objects. Probably just delete them.
       }
       next;
-    }
-  }
-
-  foreach $client (keys %timer) {
-    if($timer{$client}>($time+10) && length $inbuffer{$client}>$FLOODOFFBYTES) {
-      $connections{$client}->quit("Flood");
     }
   }
 

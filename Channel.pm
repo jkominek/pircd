@@ -453,7 +453,7 @@ sub join {
   unless($hasinvitation || $user->ismode('g')) {
     # Test to see if the user knows the channel key
     if($this->ismode('k')) {
-      unless(grep {/^$this->{key}$/} @keys) {
+      unless(grep {$_ eq $this->{key}} @keys) {
 	Connection::sendreply($user, "475 $this->{name} :Cannot join channel (+k)");
 	return;
       }
