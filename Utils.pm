@@ -2,7 +2,7 @@
 # 
 # Utils.pm
 # Created: Wed Sep 23 21:56:44 1998 by jay.kominek@colorado.edu
-# Revised: Sun Feb 21 13:51:56 1999 by jay.kominek@colorado.edu
+# Revised: Thu Apr 22 11:17:12 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -21,11 +21,12 @@ use Sys::Syslog;
 use UNIVERSAL qw(isa);
 use strict;
 
+use Tie::IRCUniqueHash;
 # We store these structures in a globalish location,
 # to let everything get at the same data.
-my %users    = ();
-my %servers  = ();
-my %channels = ();
+tie my %users,    'Tie::IRCUniqueHash';
+tie my %servers,  'Tie::IRCUniqueHash';
+tie my %channels, 'Tie::IRCUniqueHash';
 
 my $syslogsetup = 0;
 
@@ -36,10 +37,6 @@ sub version {
 sub lookup {
   my $name = shift;
   chomp $name;
-  # Because of IRC's crazy scandanavian origins, {}| is considered
-  # the lower case form of []\ and so we have to use our own tr///;
-  # to do the same thing as lc() would. *sigh*
-  $name = &irclc($name);
 
   # If it starts with a # or &, then it is a channel that we're
   # trying to look up.
@@ -70,7 +67,6 @@ sub lookup {
 sub lookupuser {
   my $name = shift;
   chomp $name;
-  $name = &irclc($name);
   return $users{$name};
 }
 
@@ -78,7 +74,6 @@ sub lookupuser {
 sub lookupchannel {
   my $name = shift;
   chomp $name;
-  $name = &irclc($name);
   return $channels{$name};
 }
 
@@ -86,7 +81,6 @@ sub lookupchannel {
 sub lookupserver {
   my $name = shift;
   chomp $name;
-  $name = &irclc($name);
   return $servers{$name};
 }
 

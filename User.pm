@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Sun Feb 21 13:54:44 1999 by jay.kominek@colorado.edu
+# Revised: Thu Apr 22 11:19:39 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -20,6 +20,8 @@ use Server;
 use Channel;
 
 use UNIVERSAL qw(isa);
+
+use Tie::IRCUniqueHash;
 
 #####################################################################
 # CLASS CONSTRUCTOR
@@ -44,6 +46,11 @@ sub new {
   $this->{'last_active'} = time();
   $this->{'last_nickchange'} = 0;
   $this->{'modes'}       = { };
+
+  tie my %channeltmp, 'Tie::IRCUniqueHash';
+  $this->{'channels'}      = \%channeltmp;
+  tie my %invitetmp,  'Tie::IRCUniqueHash';
+  $this->{'hasinvitation'} = \%invitetmp;
 
   bless($this, $class);
   $this->server->adduser($this);
@@ -155,6 +162,7 @@ sub handle {
     # To handle incoming stuff from users, we use a hash of references to
     #  subroutines which is keyed on the name of the commands that calls
     #  that subroutine.
+    print "$line\n";
     if(ref($this->{commands}->{$command})) {
       &{$this->{commands}->{$command}}($this,$line);
     } else {
@@ -346,7 +354,7 @@ sub handle_join {
       # ..otherwise, complain about their stupidity.
       if(($channel =~ /^\#/) || ($channel =~ /^\&/)) {
 	my $chanobj = Channel->new($channel);
-	Utils::channels()->{$chanobj->lcname()} = $chanobj;
+	Utils::channels()->{$chanobj->name()} = $chanobj;
 	$chanobj->join($this);
       } else {
 	$this->sendnumeric($this->server,403,($channel),"No such channel");
@@ -367,7 +375,7 @@ sub handle_part {
     $channeltmp =~ tr/A-Z\[\]\\/a-z\{\}\|/;
     my $tmp = Utils::channels()->{$channeltmp};
     if(defined($tmp)) {
-      if(defined($this->{channels}->{$tmp->lcname()})) {
+      if(defined($this->{channels}->{$tmp->name()})) {
 	$tmp->part($this,$this->server);
       } else {
 	$this->sendnumeric($this->server,403,$tmp->name,"You're not on that channel.");
@@ -489,7 +497,7 @@ sub handle_whois {
 	if(scalar keys(%{$user->{channels}})>0) {
 	  foreach(keys(%{$user->{channels}})) {
 	    my $channel = Utils::channels()->{$_};
-	    unless(($channel->ismode('s'))&&(!defined($channel->userhash()->{$this->lcnick()}))&&(!$this->ismode('g'))) {
+	    unless(($channel->ismode('s'))&&(!defined($channel->userhash()->{$this->nick()}))&&(!$this->ismode('g'))) {
 	      my $tmpstr = $channel->name();
 	      if($channel->isop($user)) {
 		$tmpstr = "@".$tmpstr;
@@ -807,7 +815,7 @@ sub handle_mode {
 	if($#accomplishedunset>=0) {
 	  $changestr = $changestr."-".join('',@accomplishedunset);
 	}
-	$this->senddata(":".$this->nick." MODE ".$this->nick." :$changestr\r\n");
+	$this->senddata(":".$this->nick." MODE ".$this->nick." $changestr\r\n");
       }
     } else {
       # We're trying to change someone else's modes,
@@ -882,11 +890,11 @@ sub handle_nick {
   } else {
     if(!defined(Utils::lookup($newnick))) {
       $this->{'oldnick'} = $this->{'nick'};
-      delete(Utils::users()->{$this->lcnick()});
+      delete(Utils::users()->{$this->nick()});
       $this->server->removeuser($this->{'oldnick'});
       $this->server->adduser($this);
       $this->{'nick'}    = $newnick;
-      Utils::users()->{$this->lcnick()} = $this;
+      Utils::users()->{$this->nick()} = $this;
       $this->senddata(":".$this->{'oldnick'}." NICK :".$this->{'nick'}."\r\n");
       my $channel;
       foreach $channel (values(%{$this->{'channels'}})) {
@@ -984,13 +992,9 @@ sub nick {
   return $this->{'nick'};
 }
 
-# Returns the nick of the user, properly lc'd so that it
-# can be used as a key
+# Deprecated by the use of Tie::IRCUniqueHash
 sub lcnick {
-  my $this = shift;
-  my $tmp = $this->{'nick'};
-  $tmp =~ tr/A-Z\[\]\\/a-z\{\}\|/;
-  return $tmp;
+  return shift;
 }
 
 sub username {
@@ -1163,7 +1167,7 @@ sub invite {
 
 sub addinvited {
   my($this,$channel) = @_;
-  $this->{hasinvitation}->{$channel->lcname()} = 1;
+  $this->{hasinvitation}->{$channel->name()} = 1;
 }
 
 # Sends the person a ping to test connectivity.
@@ -1196,7 +1200,7 @@ sub quit {
   # Tell connected servers that they're gone
   $this->server->removeuser($this);
   # Remove us from the User hash
-  delete(Utils::users()->{$this->lcnick()});
+  delete(Utils::users()->{$this->nick()});
   # Disconnect them
   if($this->islocal()) {
     &main::finishclient($this->{'socket'});
