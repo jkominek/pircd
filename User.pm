@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Fri Jan 21 20:40:12 2000 by jay.kominek@colorado.edu
+# Revised: Mon Jan 24 16:37:37 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -49,6 +49,7 @@ my $commands = {'PONG'    => sub { },
 		'MAP'     => \&handle_map,
 		'LINKS'   => \&handle_links,
 		'TRACE'   => \&handle_trace,
+		'HELP'    => \&handle_help,
 		'MODE'    => \&handle_mode,
 		'OPER'    => \&handle_oper,
 		'AWAY'    => \&handle_away,
@@ -710,6 +711,14 @@ sub handle_trace {
   # TODO
 }
 
+# HELP
+sub handle_help {
+  my $this = shift;
+  foreach my $command (keys %{$commands}) {
+    $this->notice($this->server,$command);
+  }
+}
+
 #####################################################################
 # State accessing commands
 #  These commands allow a user to manipulate their state, or (in the
@@ -739,22 +748,19 @@ sub handle_mode {
 	  $state = 0;
 	} else {
 	  if(!$this->ismode('o')) {
-	    if(grep {/$byte/} ("o","k","g")) {
-	      next MODEBYTE;
-	    }
+	    next MODEBYTE if grep {/$byte/} ("o","g");
+	  }
+	  if(!$this->ismode('g')) {
+	    next MODEBYTE if $byte eq "k";
 	  }
 	  if($state) {
-	    if($this->setmode($byte)) {
-	      push(@accomplishedset,$byte);
-	    }
+	    push(@accomplishedset,$byte) if $this->setmode($byte);
 	  } else {
 	    if($this->unsetmode($byte)) {
 	      push(@accomplishedunset,$byte);
 	      if($byte eq 'o') {
-		if($this->unsetmode('g')) {
-		  push(@accomplishedunset,'g'); }
-		if($this->unsetmode('k')) {
-		  push(@accomplishedunset,'k'); }
+		push(@accomplishedunset,'g') if $this->unsetmode('g');
+		push(@accomplishedunset,'k') if $this->unsetmode('k');
 	      }
 	    }
 	  }
