@@ -166,7 +166,7 @@ sub rehash {
 
   foreach $user (values(%{$this->{'users'}})) {
     if($user->ismode('s')) {
-      $user->notice($this,"*** Notice -- ".$from->{nick}." is rehashing Server config file");
+      $user->privmsgnotice("NOTICE",$this,"*** Notice -- ".$from->{nick}." is rehashing Server config file");
     }
   }
   &loadconffile($this);
@@ -179,7 +179,7 @@ sub opernotify {
   my $user;
   foreach $user (values(%{$this->{'users'}})) {
     if($user->ismode('o')) {
-      $user->notice($this,"*** Notice --- $msg");
+      $user->privmsgnotice("NOTICE",$this,"*** Notice --- $msg");
     }
   }
   Utils::syslog('info',$msg);
