@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Sat Feb  6 10:10:51 1999 by jay.kominek@colorado.edu
+# Revised: Sun Feb  7 21:26:36 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -78,6 +78,11 @@ sub users {
 sub userhash {
   my $this = shift;
   return $this->{'users'};
+}
+
+sub creation {
+  my $this = shift;
+  return $this->{'creation'};
 }
 
 # Sends the user /names output
