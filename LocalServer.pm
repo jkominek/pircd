@@ -2,7 +2,7 @@
 # 
 # LocalServer.pm
 # Created: Sat Sep 26 18:11:12 1998 by jay.kominek@colorado.edu
-# Revised: Thu Mar 23 16:47:49 2000 by jay.kominek@colorado.edu
+# Revised: Fri Jul 21 02:25:02 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -57,6 +57,15 @@ sub new {
 
 sub loadconffile {
   my $this = shift;
+
+  # Clear everything out so that if things have been removed from
+  # the configuration file, they actually disappear.
+  $this->{'opers'} = { };
+  $this->{'klines'} = { };
+  $this->{'connections'} = { };
+  $this->{'nets'} = { };
+  $this->{'motd'} = [undef];
+  $this->{'admin'} = [undef,undef,undef];
 
   open(CONF,$this->{'conffile'});
   my @lines = <CONF>;
