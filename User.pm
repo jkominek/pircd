@@ -579,7 +579,11 @@ sub handle_names {
     my @users = values %{Utils::users()};
     my @visible;
     if($this->ismode('g')) {
-      @visible = map { $_->nick } @users;
+      foreach my $user (@users) {
+	if(!scalar(keys(%{$user->{'channels'}}))) {
+	  push @visible, $user->nick;
+	}
+      }
     } else {
       foreach my $user (@users) {
 	if(!$user->ismode('i') && !scalar(keys(%{$user->{'channels'}}))) {
