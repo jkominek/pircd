@@ -251,7 +251,7 @@ sub donick {
 		       "Nick change too fast. Please wait $timeleft more seconds.");
   } elsif (!Utils::validnick($newnick)) {
     $this->sendnumeric($this->server,432,$newnick,"Erroneous nickname.");
-  } elsif (defined(Utils::lookup($newnick)) && (Utils::irclc($newnick) ne Utils::irclc($this->nick))) {
+  } elsif (defined(Utils::lookup($newnick)) && (Utils::irclc($newnick) ne Utils::irclc($this->{'nick'}))) {
     $this->sendnumeric($this->server,433,$newnick,
 		       "Nickname already in use");
   } elsif (!defined($this->{'nick'})) {
