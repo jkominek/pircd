@@ -2,7 +2,7 @@
 # 
 # Utils.pm
 # Created: Wed Sep 23 21:56:44 1998 by jay.kominek@colorado.edu
-# Revised: Sun Feb  7 23:02:52 1999 by jay.kominek@colorado.edu
+# Revised: Mon Feb  8 18:43:44 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # This program is free software; you can redistribute it and/or modify it
@@ -28,9 +28,9 @@ package Utils;
 use User;
 use Server;
 use Channel;
-use strict;
 use Sys::Syslog;
 use UNIVERSAL qw(isa);
+use strict;
 
 # We store these structures in a globalish location,
 # to let everything get at the same data.
@@ -50,7 +50,7 @@ sub lookup {
   # Because of IRC's crazy scandanavian origins, {}| is considered
   # the lower case form of []\ and so we have to use our own tr///;
   # to do the same thing as lc() would. *sigh*
-  $name =~ tr/A-Z\[\]\\/a-z\{\}\|/;
+  $name = &irclc($name);
 
   # If it starts with a # or &, then it is a channel that we're
   # trying to look up.
@@ -81,8 +81,7 @@ sub lookup {
 sub lookupuser {
   my $name = shift;
   chomp $name;
-  $name =~ tr/A-Z\[\]\\/a-z\{\}\|/;
-
+  $name = &irclc($name);
   return $users{$name};
 }
 
@@ -90,8 +89,7 @@ sub lookupuser {
 sub lookupchannel {
   my $name = shift;
   chomp $name;
-  $name =~ tr/A-Z\[\]\\/a-z\{\}\|/;
-
+  $name = &irclc($name);
   return $channels{$name};
 }
 
@@ -99,8 +97,7 @@ sub lookupchannel {
 sub lookupserver {
   my $name = shift;
   chomp $name;
-  $name =~ tr/A-Z\[\]\\/a-z\{\}\|/;
-
+  $name = &irclc($name);
   return $servers{$name};
 }
 
@@ -118,6 +115,12 @@ sub syslog {
   }
 
   syslog(@_);
+}
+
+sub irclc ($) {
+  my $data = shift;
+  $data =~ tr/A-Z\[\]\\/a-z\{\}\|/;
+  return $data;
 }
 
 1;
