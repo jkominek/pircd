@@ -315,7 +315,7 @@ sub mode {
     $user->sendnumeric($user->server,324,($this->{name},"+".join('',@modes),@args),undef);
     $user->sendnumeric($user->server,329,($this->{name},$this->{'creation'}),undef);
     return;
-  } elsif($modestr eq "b") {
+  } elsif($modestr eq 'b' or ($modestr eq '+b' and $#arguments == -1)) {
     foreach(keys(%{$this->{'bans'}})) {
       my @bandata = @{$this->{'bans'}->{$_}};
       $user->sendnumeric($user->server,367,($this->{name},$_,@bandata),undef);
