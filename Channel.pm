@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Sun Jan 23 16:35:29 2000 by jay.kominek@colorado.edu
+# Revised: Sun Jan 23 20:40:53 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -532,16 +532,30 @@ sub part {
 sub kick {
   my($this,$user,$target,$excuse)=@_;
   my @foo;
-  my $sap = Utils::lookup($target);
+  my $sap = Utils::lookupuser($target);
+
+  if(!$this->isop($user) && !$user->ismode('g')) {
+    Connection::sendreply($user,
+			  "482>$$this{name} You are not a channel operator");
+    return;
+  }
 
   if((!defined($sap)) || (!$sap->isa("User"))) {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return;
   }
 
-  if(!$this->isop($user) && !$user->ismode('g')) {
-    Connection::sendreply($user,
-			  "482>$$this{name} You are not a channel operator");
+  if(!$sap->onchan($this)) {
+    $user->sendnumeric($user->server,441,$target,"Nick $target is not on $$this{name}");
+    return;
+  }
+
+  if($sap->ismode('k') && !$user->ismode('g')) {
+    if($sap->ismode('g')) {
+      $user->sendnumeric($user->server,484,$target,"Target is an unkickable godlike operator");
+    } else {
+      $user->sendnumeric($user->server,484,$target,"Target is channel service");
+    }
     return;
   }
 
