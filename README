@@ -9,7 +9,8 @@
     \__|_||_\___| | .__/\___|_| |_| |_|_| \__| \__,_\__,_\___|_|_|_\___/_||_|
                   |_|                  http://pircd.sourceforge.net/
                                     by jay kominek (jkominek@users.sf.net)
-                                       and other people
+                                       julian squires (tek@wiw.org)
+                                       et al
 
  Yes.
  It really is an IRC daemon.
@@ -42,9 +43,12 @@ consult the included file, 'INTERNALS'.
 
 *** SSL
 
- pircd is one of very few IRC servers which support SSL. As of this writing,
-however, no clients support SSL. Hopefully, support for authentication and
-such based on SSL certificates will be added.
+ pircd is one of very few IRC servers which support SSL. There are a few
+IRC clients out there which even support SSL, themselves.  We don't yet any
+have sort of support for the verification of SSL certificates, though.
+(Optimally, opers would be required to have a certificate on file with the
+server in order to be allowed gain oper-status. But that is a ways off,
+at this point.)
 
 *** Requirements
 
