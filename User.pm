@@ -1123,6 +1123,11 @@ sub privmsg {
   if($this->{'socket'}) {
     if(isa($from,"User")) {
       $this->senddata(":".$from->nick."!".$from->username."\@".$from->host." PRIVMSG ".$this->nick." :$msg\r\n");
+
+      if($this->away()) {
+	$from->sendnumeric($this->server,301,$this->nick,$this->away);
+      }
+
     } elsif(isa($from,"Server")) {
       $this->senddata(":".$from->{name}." PRIVMSG ".$this->nick." :$msg\r\n");
     }
