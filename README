@@ -1,15 +1,15 @@
                                   _                _ 
                            _ __  (_) _ __  ___  __| |
                           | '_ \ | || '__|/ __|/ _` |
-                          | |_) || || |  | (__| (_| |  Alpha Twelve
+                          | |_) || || |  | (__| (_| |
                           | .__/ |_||_|   \___|\__,_|
     _   _                 |_|    _   _             _   
    | |_| |_  ___   _ __  ___ _ _| | (_)_ _ __   __| |__ _ ___ _ __  ___ _ _  
    |  _| ' \/ -_) | '_ \/ -_) '_| | | | '_/ _| / _` / _` / -_) '  \/ _ \ ' \ 
     \__|_||_\___| | .__/\___|_| |_| |_|_| \__| \__,_\__,_\___|_|_|_\___/_||_|
-                  |_|                                                        
+                  |_|                  http://pircd.sourceforge.net/
                                     by jay kominek (jay.kominek@colorado.edu)
-
+                                       and other people
 
  Yes.
  It really is an IRC daemon.
@@ -43,7 +43,7 @@ consult the included file, 'INTERNALS'.
 
 *** Requirements
 
- * Perl 5.004 (I suppose 5.005 will work, but I have not tested it)
+ * Perl 5.004 and later.
  * The following Perl modules:
     Fcntl, Getopt::Long, IO::Select, IO::Socket,
     POSIX, Sys::Syslog, Tie::RefHash, UNIVERSAL
@@ -57,6 +57,9 @@ consult the included file, 'INTERNALS'.
  I am studying Electrical and Computer Engineering at the University of
 Colorado, Boulder. I used to be available for contract programming work,
 but I got a job.
+
+ An up to date list of people helping with the development of pircd can
+be found at http://sourceforge.net/project/memberlist.php?group_id=671
 
 - Jay Kominek <jay.kominek@colorado.edu>
   Hail Eris!
