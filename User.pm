@@ -886,17 +886,18 @@ sub handle_kill {
   }
 
   if(!$excuse) {
-    $excuse = "Default Kill Message";
+    return;
   }
 
   my $fromnick = $this->nick();
   my $fromhost = $this->{'host'};
+  my $fromuser = $this->{'user'};
   $user = Utils::lookupuser($target);
   if(!defined($user)) {
     return;
   }
 
-  $user->kill($excuse, $fromnick, $fromhost);
+  $user->kill($excuse, $fromnick, $fromhost, $fromuser);
 }
 
 # WALLOPS :wibble
@@ -1142,12 +1143,12 @@ sub ping {
 
 # This happens when a person is killed.
 sub kill {
-  my ($this,$excuse,$fromnick,$fromaddr)=@_;
+  my ($this,$excuse,$fromnick,$fromaddr,$fromuser)=@_;
   my $channame;
   my @foo;
 
   my $targetaddr = $this->{'host'};
-  my $outbuffer = ":$fromnick\!~$fromaddr KILL " . $this->nick() . " :$targetaddr\!$fromnick \($excuse\)\n";
+  my $outbuffer = ":$fromnick\!~$fromuser\@$fromaddr KILL " . $this->nick() . " :$targetaddr\!$fromnick \($excuse\)\n";
   $this->{'socket'}->send($outbuffer, 0);
 
   my $outbuffer = "ERROR :Closing Link: $this->{'nick'}\[$this->{'host'}\] by " . $fromnick . " \(Local kill by " . $fromnick . "\(" . $excuse . "\)\)\n";
