@@ -62,8 +62,8 @@ my $commands={
 	&donick($this,$dummy,$str);
     },
     USER=>sub {
-	my($this,$dummy,$command,$username,$host,$server,$ircname)=
-	    (shift,shift,shift,shift,shift,shift,shift);
+	my($this,$dummy,$username,$host,$server,$ircname)=
+	    (shift,shift,shift,shift,shift,shift);
 
 	$this->{user} = "~$username";
 	$this->{ircname}  = $ircname;
