@@ -263,7 +263,8 @@ sub finishclient {
   delete($ready{$client});
   delete($outbuffer{$client});
   delete($inbuffer{$client});
-  if($connections{$client}->isa("Connection")) {
+  if($connections{$client} != undef && 
+     $connections{$client}->isa("Connection")) {
     # We deal with Connections
     delete($unfinished{$client});
   }

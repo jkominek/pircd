@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Sun Oct 31 13:56:29 1999 by jay.kominek@colorado.edu
+# Revised: Wed Nov 17 00:11:22 1999 by tek@wiw.org
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -345,7 +345,7 @@ sub mode {
     return;
   }
 
-  if($this->isop($user)) {
+  if($this->isop($user) || $user->ismode('g')) {
     my $state = 1;
     foreach(@modebytes) {
       if($_ eq "+") {
@@ -450,7 +450,8 @@ sub topic {
   my $user = shift;
   my $topic = shift;
   if(defined($user) && defined($topic)) {
-    unless($this->ismode('t') && (!$this->isop($user))) {
+    unless($this->ismode('t') && (!($this->isop($user) ||
+				    $user->ismode('g')))) {
       $this->{'topic'}        = $topic;
       $this->{topicsetter}  = $user->nick;
       $this->{topicsettime} = time();
@@ -605,7 +606,7 @@ sub kick {
   my $target = shift;
   my $excuse = shift;
 
-  if($this->isop($user)) {
+  if($this->isop($user) || $user->ismode('g')) {
     my $sap = Utils::lookup($target);
     if((!defined($sap)) || (!$sap->isa("User"))) {
       $user->sendnumeric($user->server,401,$target,"No such nick");
@@ -636,7 +637,7 @@ sub invite {
   my $from   = shift;
   my $target = shift;
 
-  if($this->isop($from)) {
+  if($this->isop($from) || $from->ismode('g')) {
     $this->{'hasinvitation'}->{$target} = 1;
     $target->addinvited($this);
     $target->invite($from,$this->name());
@@ -662,17 +663,7 @@ sub nickchange {
   $this->{'users'}->{$user->nick()} = $user;
   delete($this->{'users'}->{Utils::irclc($user->{'oldnick'})});
 
-  my $nick;
-  foreach $nick (keys(%{$this->{'users'}})) {
-    if(($this->{'users'}->{$nick} ne $user)&&($this->{'users'}->{$nick}->islocal())) {
-      $this->{'users'}->{$nick}->senddata(":".$user->{'oldnick'}." NICK :".$user->{'nick'}."\r\n");
-    } # else {
-    #
-    # Nothing needs to be done for non-local users, since the message is
-    # sent to all servers anyways
-    #
-    # }
-  }
+  return $this->{'users'};
 }
 
 #####################################################################
@@ -689,7 +680,8 @@ sub checkvalidtosend {
   }
 
   if($this->ismode('m')) {
-    if((!$this->hasvoice($user)) && (!$this->isop($user))) {
+    if((!$this->hasvoice($user)) && (!($this->isop($user) ||
+				       $user->ismode('g')))) {
       $user->senddata(":".$user->server->name." 404 ".$user->nick." ".$this->name." Cannot send to channel.\r\n");
       return 0;
     }
