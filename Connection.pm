@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Tue Jan 18 16:29:56 2000 by jay.kominek@colorado.edu
+# Revised: Tue Jan 18 17:57:42 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -194,13 +194,9 @@ sub sendnumeric {
     push(@arguments,'');
   }
 
-  defined($destnick=$this->{nick}) or $destnick='*';
+  $destnick = '*' unless defined($destnick=$this->{nick});
 
-  if(defined($msg)) {
-    $this->senddata(":$fromstr $numeric $destnick ".join(' ',@arguments)." :$msg\r\n");
-  } else {
-    $this->senddata(":".join(' ',$fromstr,$numeric,$destnick,@arguments)."\r\n");
-  }
+  $this->senddata(":".join(' ',$fromstr,$numeric,$destnick,@arguments,defined($msg)?":".$msg:( ))."\r\n");
 }
 
 # send one or more reply line to a peer
