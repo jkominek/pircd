@@ -2,7 +2,7 @@
 # 
 # Utils.pm
 # Created: Wed Sep 23 21:56:44 1998 by jay.kominek@colorado.edu
-# Revised: Thu Mar 23 16:48:13 2000 by jay.kominek@colorado.edu
+# Revised: Wed Nov 22 11:05:06 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -107,6 +107,7 @@ sub servers  { return \%servers;  }
 # Log something
 sub syslog {
   my $data = shift;
+  my $date = localtime();
 
   if(!$syslogsetup) {
     if($params{syslog}) {
@@ -119,9 +120,10 @@ sub syslog {
   }
 
   if($params{syslog}) {
+    unshift @_, $date;
     Sys::Syslog::syslog(@_);
   } else {
-    print STDERR "$data: ",shift,"\n";
+    print STDERR "$date: $data: ",shift,"\n";
   }
 }
 
@@ -178,7 +180,7 @@ sub do_handle {
 #	print "arglist is ".join(':',@arglist)."\n";
         &{$func}($object,$line,@arglist);
     } elsif($line!~/^\s*$/) {
-#        print "Received unknown command string '$line' from $$object{nick}\n";
+#       Utils::syslog('notice',"Received unknown command string '$line' from $$object{nick}");
         $object->sendnumeric($object->server,421,($command),"Unknown command");
     }
 }
