@@ -598,18 +598,18 @@ sub nickchange {
   my $user = shift;
 
   if($this->{'ops'}->{$user->{'oldnick'}}) {
-    $this->{'ops'}->{$user->nick()} = $user;
     delete $this->{'ops'}->{$user->{'oldnick'}};
+    $this->{'ops'}->{$user->nick()} = $user;
   }
   
   if($this->{'voice'}->{$user->{'oldnick'}}) {
-    $this->{'voice'}->{$user->nick()} = $user;
     delete $this->{'voice'}->{$user->{'oldnick'}};
+    $this->{'voice'}->{$user->nick()} = $user;
   }
   
-  $this->{'jointime'}->{$user->nick()} =
-    $this->{'jointime'}->{$user->{'oldnick'}};
+  $_ = $this->{'jointime'}->{$user->{'oldnick'}};
   delete($this->{'jointime'}->{$user->{'oldnick'}});
+  $this->{'jointime'}->{$user->nick()} = $_;
 
   delete($this->{'users'}->{$user->{'oldnick'}});
   $this->{'users'}->{$user->nick()} = $user;
