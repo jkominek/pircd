@@ -1,0 +1,1139 @@
+#!/usr/bin/perl
+# 
+# User.pm
+# Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
+# Revised: Mon Oct  5 15:19:56 1998 by jay.kominek@colorado.edu
+# Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
+#  
+# This program is free software; you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation; either version 1, or (at your option) any
+# later version.
+# 
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#  
+# You should have received a copy of the GNU General Public License along
+# with this program; if not, write to the Free Software Foundation, Inc.,
+# 675 Mass Ave, Cambridge, MA 02139, USA.
+#
+#####################################################################
+# User object for The Perl Internet Relay Chat Daemon
+#####################################################################
+
+use strict;
+
+package User;
+use Utils;
+use Server;
+use Channel;
+
+use UNIVERSAL qw(isa);
+
+#####################################################################
+# CLASS CONSTRUCTOR
+###################
+
+# You just pass this the connection object that it is spawned from.
+sub new {
+  my $proto = shift;
+  my $class = ref($proto) || $proto;
+  my $this  = { };
+  my $connection = shift;
+
+  # The connection object that we're spawned from has
+  #  lots of information that we need to know to be who
+  #  we are.
+  $this->{nick}        = $connection->{nick};
+  $this->{user}        = $connection->{user};
+  $this->{host}        = $connection->{host};
+  $this->{ircname}     = $connection->{ircname};
+  $this->{server}      = $connection->{server};
+  $this->{lookup}      = $connection->{lookup};
+  $this->{connected}   = $connection->{connected};
+  $this->{last_active} = time();
+
+  bless($this, $class);
+  $this->{server}->adduser($this);
+  return $this;
+}
+
+# Lets this user know its local, and provides it with the
+# information to deal with the fact.
+sub setupaslocal {
+  my $this = shift;
+  $this->{socket}    = shift;
+  $this->{outbuffer} = shift;
+
+  # Connectivity test response
+  $this->addcommand('PONG',   \&handle_pong);
+
+  # Communication
+  $this->addcommand('PRIVMSG',\&handle_privmsg);
+  $this->addcommand('NOTICE', \&handle_notice);
+
+  # Channel membership
+  $this->addcommand('JOIN',   \&handle_join);
+  $this->addcommand('CHANNEL',\&handle_join);
+  $this->addcommand('PART',   \&handle_part);
+
+  # Other channel stuff
+  $this->addcommand('TOPIC',  \&handle_topic);
+  $this->addcommand('KICK',   \&handle_kick);
+  $this->addcommand('INVITE', \&handle_invite);
+
+  # Informational
+  $this->addcommand('WHOIS',  \&handle_whois);
+  $this->addcommand('WHO',    \&handle_who);
+  $this->addcommand('WHOWAS', \&handle_whowas);
+
+  $this->addcommand('ISON',   \&handle_ison);
+  $this->addcommand('USERHOST',\&handle_userhost);
+
+  $this->addcommand('LUSERS', \&handle_lusers);
+  $this->addcommand('LIST',   \&handle_list);
+  $this->addcommand('NAMES',  \&handle_names);
+
+  $this->addcommand('STATS',  \&handle_stats);
+  $this->addcommand('VERSION',\&handle_version);
+  $this->addcommand('TIME',   \&handle_time);
+  $this->addcommand('INFO',   \&handle_info);
+  $this->addcommand('MOTD',   \&handle_motd);
+  $this->addcommand('ADMIN',  \&handle_admin);
+
+  $this->addcommand('MAP',    \&handle_map);
+  $this->addcommand('LINKS',  \&handle_links);
+  $this->addcommand('TRACE',  \&handle_trace);
+
+  # State accessing commands
+  $this->addcommand('MODE',   \&handle_mode);
+  $this->addcommand('OPER',   \&handle_oper);
+  $this->addcommand('AWAY',   \&handle_away);
+
+  # Operish stuff
+  $this->addcommand('SQUIT',  \&handle_squit);
+  $this->addcommand('CONNECT',\&handle_connect);
+  $this->addcommand('KILL',   \&handle_kill);
+  $this->addcommand('WALLOPS',\&handle_wallops);
+  $this->addcommand('REHASH', \&handle_rehash);
+
+  $this->addcommand('QUIT',   \&handle_quit);
+
+  $this->sendnumeric($this->server,1,"Welcome to the Internet Relay Network ".$this->nick);
+  $this->sendnumeric($this->server,2,"Your host is ".$this->server->name);
+  $this->sendnumeric($this->server,3,"This server was started awhile ago");
+  $this->sendnumeric($this->server,4,($this->server->name,$this->server->version,"dioswkg","biklmnopstv"),undef);
+  # Send them LUSERS output
+  $this->handle_lusers("LUSERS");
+  $this->notice($this->server,"Highest connection count: 0 (0 clients)");
+  # Send them the MOTD upon connection
+  $this->handle_motd("MOTD");
+}
+
+#####################################################################
+# MAIN INPUT HANDLER
+sub handle {
+  my $this = shift;
+  my $line = shift;
+
+  $line =~ s/\s+$//;
+
+  $this->{last_active} = time();
+  delete($this->{ping_waiting});
+
+  # The command that we key on is the first string of alphabetic
+  #  characters (and _, but we'll ignore that)
+  $line =~ /^(\w+)/;
+  # Most clients send the stuff in upper case, so we use uppercase
+  #  strings for the hash keys, hopeing that uc'ing something that
+  #  is already uppercase goes faster.
+  my $command = uc($1);
+
+  # To handle incoming stuff from users, we use a hash of references to
+  #  subroutines which is keyed on the name of the commands that calls
+  #  that subroutine.
+  if($this->{commands}->{$command}) {
+    &{$this->{commands}->{$command}}($this,$line);
+  } else {
+    if($line =~ /[\w\d\s]/) {
+      print "Received unknown command string \"$line\" from ".$this->nick."\n";
+      $this->sendnumeric($this->server,421,($command),"Unknown command");
+    }
+  }
+}
+
+#####################################################################
+# VARIOUS COMMAND HANDLERS
+
+#####################################################################
+# Connectivity response testing
+
+# PONG :response.string
+sub handle_pong {
+  # Since we're not doing anything with the response, we
+  # probably shouldn't waste CPU time assigning the arguments
+  # to anything.
+
+  #  my $this = shift;
+  #  my($command,$response) = split(/ /,shift,2);
+
+  # I suppose we could do something with the response, but
+  # what would that be?
+}
+
+# PRIVMSG target :message
+# Where target is either a user or a channel
+sub handle_privmsg {
+  my $this = shift;
+  my($command, $targetstr, $msg) = split(/ /,shift,3);
+  my @targets = split(/,/,$targetstr);
+  $msg =~ s/^://;
+  my $target;
+  # For every target string..
+  foreach $target (@targets) {
+    if($this->ismode('o') && ($target =~ /^\$/)) {
+      my $matchingservers = $target;
+      $matchingservers =~ s/^\$//;
+      $matchingservers =~ s/\./\\\./g;
+      $matchingservers =~ s/\?/\./g;
+      $matchingservers =~ s/\*/\.\+/g;
+      my $server;
+      foreach $server (values(%{Utils::servers()})) {
+	if($server->name =~ /$matchingservers$/) {
+	  if($server eq $this->server) {
+	    my @users = $this->server->users();
+	    my $user;
+	    foreach $user (@users) {
+	      $user->senddata(":".$this->nick."!".$this->username."\@".$this->host." PRIVMSG $target :".$msg."\r\n");
+	    }
+	  } else {
+	    # The server is remote. Dispatch the global privmsg
+	  }
+	}
+      }
+
+    } elsif($this->ismode('o') && ($target =~ /^\#/)) {
+      my $matchingusers = $target;
+      $matchingusers =~ s/^\$//;
+      $matchingusers =~ s/\./\\\./g;
+      $matchingusers =~ s/\?/\./g;
+      $matchingusers =~ s/\*/\.\+/g;
+      my $user;
+      foreach $user ($this->server->users()) {
+	if($user->host =~ /$matchingusers/) {
+	  $user->senddata(":".$this->nick."!".$this->username."\@".$this->host." PRIVMSG $target :".$msg."\r\n");
+	}
+      }
+      # dispatch globally.
+    } else {
+      # ..lookup the associated object..
+      my $tmp = Utils::lookup($target);
+      if(isa($tmp,"User")||isa($tmp,"Channel")) {
+	# ..and if it is a user or a channel (since they're the only things
+	#  that can handle receiving a private message), dispatch it to them.
+	$tmp->privmsg($this,$msg);
+      } else {
+      # Complain that the..   ..doesn't exist.
+	if(($target =~ /^\#/)||($target =~ /^\&/)) {
+	  #              ..channel..
+	  $this->sendnumeric($this->server,403,($target),"No such channel");
+	} else {
+	  #               ..user..
+	  $this->sendnumeric($this->server,401,($target),"No such nick");
+	}
+      }
+    }
+  }
+}
+
+# NOTICE target :message
+# Where target is either a user or a channel
+sub handle_notice {
+  my $this = shift;
+  my($command,$targetstr,$msg) = split(/ /,shift,3);
+
+  my @targets = split(/,/,$targetstr);
+  $msg =~ s/^://;
+  my $target;
+  # For every target string..
+  foreach $target (@targets) {
+    if($this->ismode('o') && ($target =~ /^\$/)) {
+      my $matchingservers = $target;
+      $matchingservers =~ s/^\$//;
+      $matchingservers =~ s/\./\\\./g;
+      $matchingservers =~ s/\?/\./g;
+      $matchingservers =~ s/\*/\.\+/g;
+      my $server;
+      foreach $server (values(%{Utils::servers()})) {
+	if($server->name =~ /$matchingservers$/) {
+	  if($server eq $this->server) {
+	    my @users = $this->server->users();
+	    my $user;
+	    foreach $user (@users) {
+	      $user->senddata(":".$this->nick."!".$this->username."\@".$this->host." NOTICE $target :".$msg."\r\n");
+	    }
+	  } else {
+	    # The server is remote. Dispatch the global privmsg
+	  }
+	}
+      }
+
+    } elsif($this->ismode('o') && ($target =~ /^\#/)) {
+      my $matchingusers = $target;
+      $matchingusers =~ s/^\$//;
+      $matchingusers =~ s/\./\\\./g;
+      $matchingusers =~ s/\?/\./g;
+      $matchingusers =~ s/\*/\.\+/g;
+      my $user;
+      foreach $user ($this->server->users()) {
+	if($user->host =~ /$matchingusers$/) {
+	  $user->senddata(":".$this->nick."!".$this->username."\@".$this->host." NOTICE $target :".$msg."\r\n");
+	}
+      }
+      # dispatch globally.
+    } else {
+      # ..lookup the associated object..
+      my $tmp = Utils::lookup($target);
+      # ..and if it is a user or a channel (since they're the only things
+      #  that can handle receiving a private message), dispatch it to them.
+      if(isa($tmp,"User")||isa($tmp,"Channel")) {
+	$tmp->notice($this,$msg);
+      } else {
+	# Complain that the..   ..doesn't exist.
+	if(($target =~ /^\#/)||($target =~ /^\&/)) {
+	  #              ..channel..
+	  $this->sendnumeric($this->server,403,($target),"No such channel");
+	} else {
+	  #               ..user..
+	  $this->sendnumeric($this->server,401,($target),"No such nick");
+	}
+      }
+    }
+  }
+}
+
+#####################################################################
+# Channel Membership
+#  These functions directly manipulate the current user's membership
+# on the channel in question.
+
+# JOIN #channel1,#channel2,..,#channeln-1,#channeln
+# JOIN #channel1,#channel2,..,#channeln-1,#channeln :key1,key2,..,keyn-1,keyn
+# Or s/JOIN/CHANNEL/ those.
+sub handle_join {
+  my $this = shift;
+  my($command, $channelstr, $keystr) = split(/ /,shift,3);
+  my @channels = split(/,/,$channelstr);
+  $keystr      =~ s/^://;
+  my @keys     = split(/,/,$keystr);
+  my $channel;
+  # For each channel they want to join..
+  foreach $channel (@channels) {
+    # ..look it up..
+    my $tmp = Utils::lookup($channel);
+    # ..if it is a channel..
+    if(defined($tmp) && $tmp->isa("Channel")) {
+      # ..then ask to join it, passing on all the keys
+      $tmp->join($this,@keys);
+    } else {
+      # ..otherwise, complain about their stupidity.
+      if(($channel =~ /^\#/) || ($channel =~ /^\&/)) {
+	my $chanobj = Channel->new($channel);
+	Utils::channels()->{$chanobj->lcname()} = $chanobj;
+	$chanobj->join($this);
+      } else {
+	$this->sendnumeric($this->server,403,($channel),"No such channel");
+      }
+    }
+  }
+}
+
+# PART #channel1,#channel2,..,#channeln-1,#channeln
+sub handle_part {
+  my $this = shift;
+  my($command, $channelstr) = split(/ /,shift,2);
+  $channelstr =~ s/^://;
+  my @channels = split(/,/,$channelstr);
+  my $channel;
+  foreach $channel (@channels) {
+    my $channeltmp = $channel;
+    $channeltmp =~ tr/A-Z\[\]\\/a-z\{\}\|/;
+    my $tmp = Utils::channels()->{$channeltmp};
+    if(defined($tmp)) {
+      if(defined($this->{channels}->{$tmp->lcname()})) {
+	$tmp->part($this,$this->server);
+      } else {
+	$this->sendnumeric($this->server,403,$tmp->name,"You're not on that channel.");
+      }
+    } else {
+      $this->sendnumeric($this->server,403,$channel,"No such channel.");
+    }
+  }
+}
+
+#####################################################################
+# Other channel related stuffs
+#  Misc commands for channels that don't deal with the current users
+# membership on the channel.
+
+# TOPIC #channel
+# TOPIC #channel :useful information about the channel
+sub handle_topic {
+  my $this = shift;
+  my($command,$channel,$topic) = split(/ /,shift,3);
+  my @channels = split(/,/,$channel);
+  $topic =~ s/^://;
+  my $ret = Utils::lookup($channel);
+  if((!defined($ret)) || (!$ret->isa("Channel"))) {
+    $this->sendnumeric($this->server,403,$channel,"No such channel.");
+    return;
+  }
+  foreach(@channels) {
+    if(defined($topic)) {
+      $ret->topic($this,$topic);
+    } else {
+      my @topicdata = $ret->topic;
+      if($#topicdata==3) {
+	$this->sendnumeric($this->server,332,$ret->name,$topicdata[0]);
+	$this->sendnumeric($this->server,333,$ret->name,$topicdata[1],$topicdata[2],undef);
+      } else {
+	$this->sendnumeric($this->server,331,$ret->name,"No topic is set");
+      }
+    }
+
+    # Note: It might be better to put the if outside of
+    # the foreach loop so that we have fewer comparisons.
+  }
+}
+
+# KICK #channel1,#channel2,..,#channeln nick1,nick2,..,nickn :excuse
+sub handle_kick {
+  my $this = shift;
+  my($command,$chanstr,$nickstr,$excuse) = split(/\s+/,shift,4);
+  my(@channels) = split(/,/,$chanstr);
+  my(@nicks)    = split(/,/,$nickstr);
+
+  $excuse =~ s/^://;
+
+  if($chanstr eq "*") {
+    # untested
+    @channels = values(%{$this->{channels}});
+  }
+
+  my $channel;
+  # ..for each of the targetted channels..
+  foreach $channel (@channels) {
+    # ..look up the associated object..
+    my $ret = Utils::lookup($channel);
+    # ..if it exists and is a channel..
+    if(defined($ret)&&$ret->isa("Channel")) {
+      # ..then for every given nick..
+      foreach(@nicks) {
+	# ..ask the channel to kick them off.
+	$ret->kick($this,$_,$excuse);
+      }
+    }
+  }
+}
+
+# INVITE
+sub handle_invite {
+  my $this = shift;
+}
+
+#####################################################################
+# Informational Commands
+#  This provide the user with various different bits of information
+# about the state of things on the network.
+
+# WHOIS server.foo.bar nick1,nick2,..,nickn-1,nickn
+# WHOIS nick1,nick2,..,nickn-1,nickn
+sub handle_whois {
+  my $this = shift;
+  my($command,@excess) = split(/\s+/,shift);
+  if($excess[1]) {
+    # They're trying to request the information
+    # from another server.
+  } else {
+    my @targets = split(/,/,$excess[0]);
+    foreach(@targets) {
+      my $user = Utils::lookup($_);
+      if(defined($user)) {
+	# *** Nick is user@host (Irc Name)
+	$this->sendnumeric($this->server,311,($user->nick,$user->username,$user->host,"*"),$user->ircname);
+	# *** on channels: #foo @#bar +#baz
+	my @names;
+	if(scalar keys(%{$user->{channels}})>0) {
+	  foreach(keys(%{$user->{channels}})) {
+	    my $channel = Utils::channels()->{$_};
+	    unless(($channel->ismode('s'))&&(!defined($channel->userhash()->{$this->lcnick()}))&&(!$this->ismode('g'))) {
+	      my $tmpstr = $channel->name();
+	      if($channel->isop($user)) {
+		$tmpstr = "@".$tmpstr;
+	      } elsif($channel->hasvoice($user)) {
+		$tmpstr = "+".$tmpstr;
+	      }
+	      push(@names,$tmpstr);
+	    }
+	  }
+	  $this->sendnumeric($this->server,319,($user->nick),join(' ',@names));
+	}
+	# *** on IRC via server foo.bar.org ([1.2.3.4] Server Name)
+	$this->sendnumeric($this->server,312,($user->nick,$user->server->name),$user->server->description);
+	# *** Nick is an IRC Operator
+	#  ... or ...
+	# *** Nick is a god-like IRC Operator
+	if($user->ismode('o')) {
+	  $this->sendnumeric($this->server,313,$user->nick,"is ".($user->ismode('g')?"a god-like":"an")." IRC Operator\r\n");
+	}
+	# *** Nick is away: excuse
+	if($user->away()) {
+	  $this->sendnumeric($this->server,301,$user->nick,$user->away);
+	}
+	# *** Nick has been 3 minutes and 42 seconds idle
+	if($user->islocal()) {
+	  $this->sendnumeric($this->server,317,($user->nick,time()-$user->last_active,$user->connected),"seconds idle, signon time");
+	}
+      }
+    }
+    $this->sendnumeric($this->server,318,$excess[0],"End of /WHOIS list.");
+  }
+}
+
+# WHO targets
+sub handle_who {
+  my $this = shift;
+  my($command,$targets) = split(/\s+/,shift,2);
+
+  my(@targets) = split(/,/,$targets);
+  my $target;
+  foreach $target (@targets) {
+    my $ret = Utils::lookup($target);
+    if(defined($ret)) {
+      if($ret->isa("User")) {
+	$this->sendnumeric($this->server,352,("*",$ret->username,$ret->host,$ret->server->name,$ret->nick,"H"),$ret->server->hops." ".$ret->ircname);
+      } elsif($ret->isa("Channel")) {
+	my @users = $ret->users();
+	my $user;
+	foreach $user (@users) {
+	  $this->sendnumeric($this->server,352,($ret->name,$user->username,$user->host,$user->server->name,$user->nick,"H"),$user->server->hops." ".$user->ircname);
+	}
+      } elsif($ret->isa("Server")) {
+	my @users = $ret->users();
+	my $user;
+	foreach $user (@users) {
+	  # ?
+	}
+      }
+    }
+  }
+  $this->sendnumeric($this->server,315,$targets,"End of /WHO list.");
+}
+
+# WHOWAS nicks
+sub handle_whowas {
+  my $this = shift;
+  my($command,$targets) = split(/\s+/,shift,2);
+  my @targets = split(/,/,$targets);
+
+  my $target;
+  foreach $target (@targets) {
+
+  }
+}
+
+# ISON nick nick nick
+sub handle_ison {
+  my $this = shift;
+  my($command,$targets) = split(/\s+/,shift,2);
+  my @targets = split(/\s+/,$targets);
+
+  my @ison;
+  my $target;
+  foreach $target (@targets) {
+    my $ret = Utils::lookup($target);
+    if(defined($ret) && $ret->isa("User")) {
+      push(@ison,$ret->nick);
+    }
+  }
+  $this->sendnumeric($this->server,303,join(' ',@ison));
+}
+
+# USERHOST nick nick nick
+sub handle_userhost {
+  my $this = shift;
+  my($command,$targets) = split(/\s+/,shift,2);
+  my @targets = split(/\s+/,$targets);
+
+  my @results;
+  my $target;
+  foreach $target (@targets) {
+    my $ret = Utils::lookup($target);
+    if(defined($ret) && $ret->isa("User")) {
+      push(@results,$ret->nick."=".(defined($ret->away)?"-":"+").$ret->username."\@".$ret->host);
+    }
+  }
+  $this->sendnumeric($this->server,302,join(' ',@results));
+}
+
+# LUSERS
+sub handle_lusers {
+  my $this = shift;
+  $this->sendnumeric($this->server,251,"There are ".$this->server->users." users and 0 invisible on 1 server(s)");
+  $this->sendnumeric($this->server,252,0,"operator(s) online");
+  $this->sendnumeric($this->server,253,(scalar keys(%{Utils::channels()})),"channels formed");
+  $this->sendnumeric($this->server,255,"I have ".$this->server->users." user(s) and ".$this->server->children." server(s)\r\n");
+}
+
+# LIST
+sub handle_list {
+  my $this = shift;
+  $this->sendnumeric($this->server,321,("Channel","Users"),"Name");
+  my %channels = %{Utils::channels()};
+  my $channel;
+  foreach $channel (keys(%channels)) {
+    my @topicdata = $channels{$channel}->topic;
+    $this->sendnumeric($this->server,322,($channels{$channel}->name,scalar $channels{$channel}->users),$topicdata[0]);
+  }
+  $this->sendnumeric($this->server,323,"End of /LIST");
+}
+
+# NAMES
+sub handle_names {
+  my $this = shift;
+  my($command,$channels) = split(/ /,shift,2);
+
+  my @channels;
+  if(defined($channels)) {
+    foreach(split(/,/,$channels)) {
+      my $ret = Utils::lookup($_);
+      if(defined($ret) && $ret->isa("Channel")) {
+	$ret->names($this);
+      }
+      $this->sendnumeric($this->server,366,($_),"End of /NAMES list.");
+    }
+  } else {
+    $channels = "*";
+    foreach(values(%{Utils::channels()})) {
+      $_->names();
+    }
+    # We need to do the brain damaged * thing.
+  }
+}
+
+# STATS
+sub handle_stats {
+  my $this = shift;
+
+}
+
+# VERSION
+sub handle_version {
+  my $this = shift;
+  $this->sendnumeric($this->server->name,351,($this->server->version,$this->server->name),"some crap");
+}
+
+# TIME
+sub handle_time {
+  my $this = shift;
+  my($command,$server) = split(/ /,shift,2);
+  if(!defined($server)) {
+    my $time = time();
+    $this->sendnumeric($this->server,391,($this->server->name,$time,0),scalar gmtime($time));
+  } else {
+    # They want to request the time from a remote server.
+  }
+}
+
+# INFO
+sub handle_info {
+  my $this = shift;
+}
+
+# MOTD
+sub handle_motd {
+  my $this = shift;
+  $this->sendnumeric($this->server,375,"- ".$this->server->name." Message of the Day -");
+  foreach($this->server->getmotd) {
+    $this->sendnumeric($this->server,372,"- $_");
+  }
+  $this->sendnumeric($this->server,376,"End of /MOTD command.");
+}
+
+# ADMIN
+sub handle_admin {
+  my $this = shift;
+  $this->sendnumeric($this->server,256,"Administrative info about ".$this->server->name);
+  my @admindata = $this->server->getadmin();
+  $this->sendnumeric($this->server,257,$admindata[0]);
+  $this->sendnumeric($this->server,258,$admindata[1]);
+  $this->sendnumeric($this->server,259,$admindata[2]);
+}
+
+# MAP
+sub handle_map {
+  my $this = shift;
+
+  my $server = $this->server;
+  my @atdepth;
+
+  $this->sendnumeric($this->server,5,$server->name);
+  foreach($server->children) {
+    &map_children_disp($this,$_,2);
+  }
+  $this->sendnumeric($this->server,7,"End of /MAP");
+}
+
+sub map_children_disp {
+  my $this   = shift;
+  my $server = shift;
+  my $depth  = shift;
+
+  $this->sendnumeric($this->server,5,(" "x$depth).$server->name);
+  foreach($server->children) {
+    &map_children_disp($this,$_,$depth+2);
+  }
+}
+
+# LINKS
+sub handle_links {
+  my $this = shift;
+}
+
+# TRACE
+sub handle_trace {
+  my $this = shift;
+}
+
+#####################################################################
+# State accessing commands
+#  These commands allow a user to manipulate their state, or (in the
+# case of MODE) the state of channels.
+
+# MODE
+sub handle_mode {
+  my $this = shift;
+  my($command,$target,$modestr,@arguments) = split(/ /,shift);
+  $modestr =~ s/^://;
+  my @modebytes = split(//,$modestr);
+  my(@accomplishedset, @accomplishedunset);
+
+  my $ret = Utils::lookup($target);
+  if(!defined($ret)) {
+    $this->sendnumeric($this->server,403,($target),"No such channel.");
+    return;
+  }
+  if($ret->isa("User")) {
+    # We're going to try and change a user's modes.
+    if($ret eq $this) {
+      # We're trying to change our own modes
+      my $state = 1;
+      MODEBYTE: foreach(@modebytes) {
+	if($_ eq "+") {
+	  $state = 1;
+	} elsif($_ eq "-") {
+	  $state = 0;
+	} else {
+	  if(!$this->ismode('o')) {
+	    if(grep {/$_/} ("o","k","g")) {
+	      next MODEBYTE;
+	    }
+	  }
+	  if($state) {
+	    if($this->setmode($_)) {
+	      push(@accomplishedset,$_);
+	    }
+	  } else {
+	    if($this->unsetmode($_)) {
+	      push(@accomplishedunset,$_);
+	      if($_ eq 'o') {
+		if($this->unsetmode('g')) {
+		  push(@accomplishedunset,'g'); }
+		if($this->unsetmode('k')) {
+		  push(@accomplishedunset,'k'); }
+	      }
+	    }
+	  }
+	}
+      }
+      if($#accomplishedset>=0 || $#accomplishedunset>=0) {
+	my $changestr;
+	if($#accomplishedset>=0) {
+	  $changestr = "+".join('',@accomplishedset);
+	}
+	if($#accomplishedunset>=0) {
+	  $changestr = $changestr."-".join('',@accomplishedunset);
+	}
+	$this->senddata(":".$this->nick." MODE ".$this->nick." :$changestr\r\n");
+      }
+    } else {
+      # We're trying to change someone else's modes,
+      # which is generally considered bad form.
+      $this->sendnumeric($this->server,502,"Can't change modes for other users.");
+    }
+  } elsif($ret->isa("Channel")) {
+    # In the spirit of letting the channel object handle
+    # most of the checking in regards to itself, we simply
+    # make the mode change request to it, and let it sort
+    # out whether or not we're op'd and what not.
+    $ret->mode($this,$modestr,@arguments);
+  }
+}
+
+# OPER nick :password
+sub handle_oper {
+  my $this = shift;
+  my($command,$nick,$password) = split(/ /,shift,3);
+  $password =~ s/^://;
+
+  if($this->ismode('o')) {
+    return;
+  }
+
+  my %opers = %{$this->server->getopers()};
+  my $mymask = $this->nick."!".$this->username."\@".$this->host;
+  if(defined($opers{$nick})) {
+    my %info  = %{$opers{$nick}};
+    if($mymask =~ /$info{mask}$/i) {
+      if(crypt($password,$info{password}) eq $info{password}) {
+	$this->setmode('o');
+	$this->setmode('w');
+	$this->setmode('s');
+	$this->senddata(":".$this->nick." MODE ".$this->nick." :+ows\r\n");
+	$this->sendnumeric($this->server,381,"Your are now an IRC Operator");
+      } else {
+	$this->sendnumeric($this->server,464,"Password Incorrect.");
+      }
+    } else {
+      $this->sendnumeric($this->server,491,"No O-lines for your host mask.");
+    }
+  } else {
+    $this->sendnumeric($this->server,491,"No O-lines for your nick.");
+  }
+}
+
+# AWAY
+# AWAY :my excuse
+sub handle_away {
+  my $this = shift;
+  my($command,$msg) = split(/ /,shift,2);
+  $msg =~ s/^://;
+  if($msg) {
+    $this->{awaymsg} = $msg;
+    $this->sendnumeric($this->server,306,"You have been marked as away.");
+  } else {
+    delete($this->{awaymsg});
+    $this->sendnumeric($this->server,305,"You are no longer marked as away.");
+  }
+}
+
+#####################################################################
+# Oper-ish Stuff
+#  These commands are available only to users who are +o.  They deal
+# with the maintenance of the local server and the network as a whole.
+#
+
+# SQUIT
+sub handle_squit {
+  my $this = shift;
+}
+
+# CONNECT
+sub handle_connect {
+  my $this = shift;
+}
+
+# KILL nick :excuse
+sub handle_kill {
+  my $this = shift;
+  my($command,$target,$excuse) = split(/ /,shift,3);
+  $excuse =~ s/^://;
+  # Look the user up, call $user->kill($this,$excuse)
+  # Of course, that requires Users have a kill method.
+  # So you'll have to write that, too.
+}
+
+# WALLOPS :wibble
+sub handle_wallops {
+  my $this = shift;
+  my($command,$message) = split(/ /,shift,2);
+
+  if(!$this->ismode('o')) {
+    $this->sendnumeric($this->server,481,"Permission Denied- You're not an IRC operator");
+    return;
+  }
+
+  $message =~ s/^://;
+  foreach($this->server->users()) {
+    if($_->ismode('w')) {
+      $_->senddata(":".$this->nick."!".$this->username."\@".$this->host." WALLOPS :$message\r\n");
+    }
+  }
+  # Disseminate the message to all connected servers.
+}
+
+# REHASH
+sub handle_rehash {
+  my $this = shift;
+  if($this->ismode('o')) {
+    $this->sendnumeric($this->server,382,("server.conf"),"Rehashing");
+    $this->server->opernotify($this->nick." is rehashing the server configuration file.");
+    $this->server->rehash();
+  } else {
+    $this->sendnumeric($this->server,481,"Permission Denied- You're not an IRC operator");
+  }
+}
+
+# ***
+
+# QUIT
+# QUIT :my excuse
+sub handle_quit {
+  my $this = shift;
+  my($command,$msg) = split(/ /,shift,2);
+  $msg =~ s/^://;
+  $this->quit($msg);
+}
+
+#####################################################################
+# DATA ACCESSING SUBROUTINES
+############################
+
+# Get the nick of this user
+sub nick {
+  my $this = shift;
+  return $this->{nick};
+}
+
+# Returns the nick of the user, properly lc'd so that it
+# can be used as a key
+sub lcnick {
+  my $this = shift;
+  my $tmp = $this->{nick};
+  $tmp =~ tr/A-Z\[\]\\/a-z\{\}\|/;
+  return $tmp;
+}
+
+sub username {
+  my $this = shift;
+  return $this->{user};
+}
+
+sub ircname {
+  my $this = shift;
+  return $this->{ircname};
+}
+
+sub host {
+  my $this = shift;
+  return $this->{host};
+}
+
+sub islocal {
+  my $this = shift;
+  if(defined($this->{socket})) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+sub server {
+  my $this = shift;
+  return $this->{server};
+}
+
+sub isoper {
+  my $this = shift;
+  return 0;
+}
+
+sub isvalidusermode {
+  my $mode = shift;
+  if(grep {/$mode/} ("d","i","o","s","w","k","g")) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+sub ismode {
+  my $this = shift;
+  my $mode = shift;
+  if($this->{modes}->{$mode}==1) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+sub setmode {
+  my $this = shift;
+  my $mode = shift;
+  if(!&isvalidusermode($mode)) {
+    $this->senddata(":".$this->server->name." 501 ".$this->nick." :Unknown mode flag \'$mode\'\r\n");
+    return 0;
+  }
+  if(!$this->{modes}->{$mode}) {
+    $this->{modes}->{$mode} = 1;
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+sub unsetmode {
+  my $this = shift;
+  my $mode = shift;
+  if(!&isvalidusermode($mode)) {
+    $this->senddata(":".$this->server->name." 501 ".$this->nick." :Unknown mode flag \'$mode\'\r\n");
+    return 0;
+  }
+  if($this->{modes}->{$mode}) {
+    $this->{modes}->{$mode} = 0;
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+# Last time this user was active
+sub last_active {
+  my $this = shift;
+  return $this->{last_active};
+}
+
+sub connected {
+  my $this = shift;
+  return $this->{connected};
+}
+
+sub away {
+  my $this = shift;
+  return $this->{awaymsg};
+}
+
+# We don't want to ping someone we've already pung.
+sub ping_in_air {
+  my $this = shift;
+  if($this->{ping_waiting}) {
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+#####################################################################
+# SENDING THIS USER STUFF
+#########################
+
+# Sends this user a private message
+sub privmsg {
+  my $this = shift;
+  my $from = shift;
+  my $msg  = shift;
+
+  if($this->{socket}) {
+    if(isa($from,"User")) {
+      $this->senddata(":".$from->nick."!".$from->username."\@".$from->host." PRIVMSG ".$this->nick." :$msg\r\n");
+    } elsif(isa($from,"Server")) {
+      $this->senddata(":".$from->name." PRIVMSG $this->nick :$msg\r\n");
+    }
+  } else {
+    # They're not a local user, so we'll have to
+    # route it through a server.
+    # $this->server->privmsg($from,$this,$msg);
+  }
+}
+
+# Sends this user a notice
+sub notice {
+  my $this = shift;
+  my $from = shift;
+  my $msg  = shift;
+
+  if($this->{socket}) {
+    if(isa($from,"User")) {
+      $this->senddata(":".$from->nick."!".$from->username."\@".$from->host." NOTICE ".$this->nick." :$msg\r\n");
+    } elsif(isa($from,"Server")) {
+      $this->senddata(":".$from->name." NOTICE $this->nick :$msg\r\n");
+    }
+  } else {
+    # They're not a local user, so we'll have to
+    # route it through a server.
+    # $this->server->notice($from,$this,$msg);
+  }
+}
+
+# Sends the person a ping to test connectivity.
+sub ping {
+  my $this = shift;
+  if($this->{socket}) {
+    # If they're not a local user, its not our problem
+    $this->{ping_waiting} = 1;
+    $this->senddata("PING :".$this->{server}->name."\r\n");1
+  }
+}
+
+# This happens when the person quits.
+sub quit {
+  my $this = shift;
+  my $msg  = shift;
+  # Remove them from all appropriate structures, etc
+   # This is mainly handled when its found that their
+   # socket is no longer valid.
+  # Notify all the channels they're in of their disconnect
+  foreach(keys(%{$this->{channels}})) {
+    $this->{channels}->{$_}->notifyofquit($this,$msg);
+  }
+  # Tell connected servers that they're gone
+  $this->{server}->removeuser($this);
+  # Disconnect them
+  &main::finishclient($this->{socket});
+}
+
+#####################################################################
+# RAW, LOW-LEVEL OR MISC SUBROUTINES
+####################################
+
+# Adds a command to the hash of commandname->subroutine refs
+sub addcommand {
+  my $this    = shift;
+  my $command = shift;
+  my $subref  = shift;
+
+  $this->{commands}->{$command} = $subref;
+}
+
+sub sendnumeric {
+  my $this      = shift;
+  my $from      = shift;
+  my $numeric   = shift;
+  my $msg       = pop;
+  my @arguments = @_;
+
+  my $fromstr;
+  if($from->isa("User")) {
+    $fromstr = $from->nick."!".$from->username."\@".$from->host;
+  } elsif($from->isa("Server")) {
+    $fromstr = $from->name;
+  }
+
+  if(length($numeric)<3) {
+    $numeric = ("0" x (3 - length($numeric))).$numeric;
+  }
+
+  $this->senddata(":".$fromstr." $numeric ".$this->nick." ".join(' ',@arguments).(defined($msg)?" :$msg":"")."\r\n");
+}
+
+# Does the actual queueing of a bit of data
+sub senddata {
+  my $this = shift;
+
+  print STDOUT join('',@_);
+  $this->{outbuffer}->{$this->{socket}} .= join('',@_);
+}
+
+1;
