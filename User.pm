@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Thu Apr 22 11:19:39 1999 by jay.kominek@colorado.edu
+# Revised: Tue Oct 26 19:21:54 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -22,6 +22,44 @@ use Channel;
 use UNIVERSAL qw(isa);
 
 use Tie::IRCUniqueHash;
+
+my $commands = {'PONG'    => \&handle_pong,
+		'PRIVMSG' => \&handle_privmsg,
+		'NOTICE'  => \&handle_notice,
+		'JOIN'    => \&handle_join,
+		'CHANNEL' => \&handle_join,
+		'PART'    => \&handle_part,
+		'TOPIC'   => \&handle_topic,
+		'KICK'    => \&handle_kick,
+		'INVITE'  => \&handle_invite,
+		'WHOIS'   => \&handle_whois,
+		'WHO'     => \&handle_who,
+		'WHOWAS'  => \&handle_whowas,
+		'ISON'    => \&handle_ison,
+		'USERHOST' => \&handle_userhost,
+		'LUSERS'  => \&handle_lusers,
+		'LIST'    => \&handle_list,
+		'NAMES'   => \&handle_names,
+		'STATS'   => \&handle_stats,
+		'VERSION' => \&handle_version,
+		'TIME'    => \&handle_time,
+		'INFO'    => \&handle_info,
+		'MOTD'    => \&handle_motd,
+		'ADMIN'   => \&handle_admin,
+		'MAP'     => \&handle_map,
+		'LINKS'   => \&handle_links,
+		'TRACE'   => \&handle_trace,
+		'MODE'    => \&handle_mode,
+		'OPER'    => \&handle_oper,
+		'AWAY'    => \&handle_away,
+		'NICK'    => \&handle_nick,
+		'SQUIT'   => \&handle_squit,
+		'CONNECT' => \&handle_connect,
+		'KILL'    => \&handle_kill,
+		'WALLOPS' => \&handle_wallops,
+		'REHASH'  => \&handle_rehash,
+		'QUIT'    => \&handle_quit
+	       };
 
 #####################################################################
 # CLASS CONSTRUCTOR
@@ -57,78 +95,24 @@ sub new {
   if(defined($connection->{'socket'})) {
     $this->{'socket'}    = $connection->{'socket'};
     $this->{'outbuffer'} = $connection->{'outbuffer'};
-    $this->setupaslocal();
-    my $server;
-    foreach $server ($this->server->children) {
+    foreach my $server ($this->server->children) {
       $server->nick($this);
     }
+    $this->sendsplash();
   }
   return $this;
 }
 
-# Lets this user know its local, and provides it with the
-# information to deal with the fact.
-sub setupaslocal {
+# Send the "splash" screen information junk stuff.
+sub sendsplash {
   my $this = shift;
 
-  # Connectivity test response
-  $this->addcommand('PONG',   \&handle_pong);
-
-  # Communication
-  $this->addcommand('PRIVMSG',\&handle_privmsg);
-  $this->addcommand('NOTICE', \&handle_notice);
-
-  # Channel membership
-  $this->addcommand('JOIN',   \&handle_join);
-  $this->addcommand('CHANNEL',\&handle_join);
-  $this->addcommand('PART',   \&handle_part);
-
-  # Other channel stuff
-  $this->addcommand('TOPIC',  \&handle_topic);
-  $this->addcommand('KICK',   \&handle_kick);
-  $this->addcommand('INVITE', \&handle_invite);
-
-  # Informational
-  $this->addcommand('WHOIS',  \&handle_whois);
-  $this->addcommand('WHO',    \&handle_who);
-  $this->addcommand('WHOWAS', \&handle_whowas);
-
-  $this->addcommand('ISON',   \&handle_ison);
-  $this->addcommand('USERHOST',\&handle_userhost);
-
-  $this->addcommand('LUSERS', \&handle_lusers);
-  $this->addcommand('LIST',   \&handle_list);
-  $this->addcommand('NAMES',  \&handle_names);
-
-  $this->addcommand('STATS',  \&handle_stats);
-  $this->addcommand('VERSION',\&handle_version);
-  $this->addcommand('TIME',   \&handle_time);
-  $this->addcommand('INFO',   \&handle_info);
-  $this->addcommand('MOTD',   \&handle_motd);
-  $this->addcommand('ADMIN',  \&handle_admin);
-
-  $this->addcommand('MAP',    \&handle_map);
-  $this->addcommand('LINKS',  \&handle_links);
-  $this->addcommand('TRACE',  \&handle_trace);
-
-  # State accessing commands
-  $this->addcommand('MODE',   \&handle_mode);
-  $this->addcommand('OPER',   \&handle_oper);
-  $this->addcommand('AWAY',   \&handle_away);
-  $this->addcommand('NICK',   \&handle_nick);
-
-  # Operish stuff
-  $this->addcommand('SQUIT',  \&handle_squit);
-  $this->addcommand('CONNECT',\&handle_connect);
-  $this->addcommand('KILL',   \&handle_kill);
-  $this->addcommand('WALLOPS',\&handle_wallops);
-  $this->addcommand('REHASH', \&handle_rehash);
-
-  $this->addcommand('QUIT',   \&handle_quit);
-
-  $this->sendnumeric($this->server,1,"Welcome to the Internet Relay Network ".$this->nick);
-  $this->sendnumeric($this->server,2,"Your host is ".$this->server->name.", running version ".$this->server->version);
-  $this->sendnumeric($this->server,3,"This server was created ".scalar gmtime($this->server->creation));
+  $this->sendnumeric($this->server,1,
+   "Welcome to the Internet Relay Network ".$this->nick);
+  $this->sendnumeric($this->server,2,
+   "Your host is ".$this->server->name.", running version ".$this->server->version);
+  $this->sendnumeric($this->server,3,
+   "This server was created ".scalar gmtime($this->server->creation));
   $this->sendnumeric($this->server,4,($this->server->name,$this->server->version,"dioswkg","biklmnopstv"),undef);
   # Send them LUSERS output
   $this->handle_lusers("LUSERS");
@@ -143,13 +127,11 @@ sub handle {
   my $this = shift;
   my $rawline = shift;
 
-  my $line;
-  foreach $line (split(/\x00/,$rawline)) {
-
+  foreach my $line (split(/\x00/,$rawline)) {
     $line =~ s/\s+$//;
 
-    $this->{last_active} = time();
-    delete($this->{ping_waiting});
+    $this->{'last_active'} = time();
+    delete($this->{'ping_waiting'});
 
     # The command that we key on is the first string of alphabetic
     #  characters (and _, but we'll ignore that)
@@ -163,8 +145,8 @@ sub handle {
     #  subroutines which is keyed on the name of the commands that calls
     #  that subroutine.
     print "$line\n";
-    if(ref($this->{commands}->{$command})) {
-      &{$this->{commands}->{$command}}($this,$line);
+    if(ref($commands->{$command})) {
+      &{$commands->{$command}}($this,$line);
     } else {
       if($line =~ /[\w\d\s]/) {
 	print "Received unknown command string \"$line\" from ".$this->nick."\n";
@@ -204,22 +186,19 @@ sub handle_privmsg {
   my($command, $targetstr, $msg) = split(/\s+/,shift,3);
   my @targets = split(/,/,$targetstr);
   $msg =~ s/^://;
-  my $target;
   # For every target string..
-  foreach $target (@targets) {
+  foreach my $target (@targets) {
     if($this->ismode('o') && ($target =~ /^\$/)) {
       my $matchingservers = $target;
       $matchingservers =~ s/^\$//;
       $matchingservers =~ s/\./\\\./g;
       $matchingservers =~ s/\?/\./g;
       $matchingservers =~ s/\*/\.\+/g;
-      my $server;
-      foreach $server (values(%{Utils::servers()})) {
+      foreach my $server (values(%{Utils::servers()})) {
 	if($server->name =~ /$matchingservers$/) {
 	  if($server eq $this->server) {
 	    my @users = $this->server->users();
-	    my $user;
-	    foreach $user (@users) {
+	    foreach my $user (@users) {
 	      $user->senddata(":".$this->nick."!".$this->username."\@".$this->host." PRIVMSG $target :".$msg."\r\n");
 	    }
 	  } else {
@@ -233,8 +212,7 @@ sub handle_privmsg {
       $matchingusers =~ s/\./\\\./g;
       $matchingusers =~ s/\?/\./g;
       $matchingusers =~ s/\*/\.\+/g;
-      my $user;
-      foreach $user ($this->server->users()) {
+      foreach my $user ($this->server->users()) {
 	if($user->host =~ /$matchingusers/) {
 	  $user->senddata(":".$this->nick."!".$this->username."\@".$this->host." PRIVMSG $target :".$msg."\r\n");
 	}
@@ -269,9 +247,8 @@ sub handle_notice {
 
   my @targets = split(/,/,$targetstr);
   $msg =~ s/^://;
-  my $target;
   # For every target string..
-  foreach $target (@targets) {
+  foreach my $target (@targets) {
     if($this->ismode('o') && ($target =~ /^\$/)) {
       my $matchingservers = $target;
       $matchingservers =~ s/^\$//;
@@ -341,9 +318,8 @@ sub handle_join {
   my @channels = split(/,/,$channelstr);
   $keystr      =~ s/^://;
   my @keys     = split(/,/,$keystr);
-  my $channel;
   # For each channel they want to join..
-  foreach $channel (@channels) {
+  foreach my $channel (@channels) {
     # ..look it up..
     my $tmp = Utils::lookup($channel);
     # ..if it is a channel..
@@ -369,8 +345,7 @@ sub handle_part {
   my($command, $channelstr) = split(/\s+/,shift,2);
   $channelstr =~ s/^://;
   my @channels = split(/,/,$channelstr);
-  my $channel;
-  foreach $channel (@channels) {
+  foreach my $channel (@channels) {
     my $channeltmp = $channel;
     $channeltmp =~ tr/A-Z\[\]\\/a-z\{\}\|/;
     my $tmp = Utils::channels()->{$channeltmp};
@@ -435,9 +410,8 @@ sub handle_kick {
     @channels = values(%{$this->{channels}});
   }
 
-  my $channel;
   # ..for each of the targetted channels..
-  foreach $channel (@channels) {
+  foreach my $channel (@channels) {
     # ..look up the associated object..
     my $ret = Utils::lookup($channel);
     # ..if it exists and is a channel..
@@ -537,16 +511,14 @@ sub handle_who {
   my($command,$targets) = split(/\s+/,shift,2);
 
   my(@targets) = split(/,/,$targets);
-  my $target;
-  foreach $target (@targets) {
+  foreach my $target (@targets) {
     my $ret = Utils::lookup($target);
     if(defined($ret)) {
       if($ret->isa("User")) {
 	$this->sendnumeric($this->server,352,("*",$ret->username,$ret->host,$ret->server->name,$ret->nick,"H"),$ret->server->hops." ".$ret->ircname);
       } elsif($ret->isa("Channel")) {
 	my @users = $ret->users();
-	my $user;
-	foreach $user (@users) {
+	foreach my $user (@users) {
 	  $this->sendnumeric($this->server,352,($ret->name,$user->username,$user->host,$user->server->name,$user->nick,"H"),$user->server->hops." ".$user->ircname);
 	}
       } elsif($ret->isa("Server")) {
@@ -567,8 +539,7 @@ sub handle_whowas {
   my($command,$targets) = split(/\s+/,shift,2);
   my @targets = split(/,/,$targets);
 
-  my $target;
-  foreach $target (@targets) {
+  foreach my $target (@targets) {
 
   }
 }
@@ -580,8 +551,7 @@ sub handle_ison {
   my @targets = split(/\s+/,$targets);
 
   my @ison;
-  my $target;
-  foreach $target (@targets) {
+  foreach my $target (@targets) {
     my $ret = Utils::lookup($target);
     if(defined($ret) && $ret->isa("User")) {
       push(@ison,$ret->nick);
@@ -597,8 +567,7 @@ sub handle_userhost {
   my @targets = split(/\s+/,$targets);
 
   my @results;
-  my $target;
-  foreach $target (@targets) {
+  foreach my $target (@targets) {
     my $ret = Utils::lookup($target);
     if(defined($ret) && $ret->isa("User")) {
       push(@results,$ret->nick."=".(defined($ret->away)?"-":"+").$ret->username."\@".$ret->host);
@@ -621,8 +590,7 @@ sub handle_list {
   my $this = shift;
   $this->sendnumeric($this->server,321,("Channel","Users"),"Name");
   my %channels = %{Utils::channels()};
-  my $channel;
-  foreach $channel (keys(%channels)) {
+  foreach my $channel (keys(%channels)) {
     my @topicdata = $channels{$channel}->topic;
     $this->sendnumeric($this->server,322,($channels{$channel}->name,scalar $channels{$channel}->users),$topicdata[0]);
   }
@@ -646,7 +614,7 @@ sub handle_names {
   } else {
     $channels = "*";
     foreach(values(%{Utils::channels()})) {
-      $_->names();
+      $_->names($this);
     }
     # We need to do the brain damaged * thing.
   }
@@ -655,13 +623,12 @@ sub handle_names {
 # STATS
 sub handle_stats {
   my $this = shift;
-  my($command,$request,$server) = split(/\s+/,shift,3);
+  my($command,$request,$server) = split/\s+/,shift,3;
   $request = substr($request,0,1);
  SWITCH: {
     if(uc($request) eq 'O') {
       my %opers = %{$this->server->getopers()};
-      my $nick;
-      foreach $nick (keys(%opers)) {
+      foreach my $nick (keys(%opers)) {
 	$this->sendnumeric($this->server,243,"O",$opers{$nick}->{mask},"*",$nick,0,10,undef);
       }
       last SWITCH;
@@ -816,6 +783,9 @@ sub handle_mode {
 	  $changestr = $changestr."-".join('',@accomplishedunset);
 	}
 	$this->senddata(":".$this->nick." MODE ".$this->nick." $changestr\r\n");
+	foreach my $server ($this->server->children) {
+	  $server->mode($this,$this,$changestr);
+	}
       }
     } else {
       # We're trying to change someone else's modes,
@@ -834,17 +804,18 @@ sub handle_mode {
 # OPER nick :password
 sub handle_oper {
   my $this = shift;
-  my($command,$nick,$password) = split(/\s+/,shift,3);
+  my($command,$nick,$password) = split/\s+/,shift,3;
   $password =~ s/^://;
 
   if($this->ismode('o')) {
     return;
   }
 
-  my %opers = %{$this->server->getopers()};
+  my $opers = $this->server->{'opers'};
+
   my $mymask = $this->nick."!".$this->username."\@".$this->host;
-  if(defined($opers{$nick})) {
-    my %info  = %{$opers{$nick}};
+  if(defined($opers->{$nick})) {
+    my %info  = %{ $opers->{$nick} };
     if($mymask =~ /$info{mask}$/i) {
       if(crypt($password,$info{password}) eq $info{password}) {
 	$this->setmode('o');
@@ -916,17 +887,41 @@ sub handle_nick {
 # SQUIT
 sub handle_squit {
   my $this = shift;
+  my($command,$tserver) = split/\s+/,shift,2;
+
 }
 
 # CONNECT
 sub handle_connect {
   my $this = shift;
+  my($command,$tserver,$port,$sserver) = split/\s+/,shift,4;
+  if(!defined($sserver)) {
+    my $tserverinfo = $this->server->lookupconnection($tserver);
+    if(!ref($tserverinfo)) {
+     $this->notice($this->server,"Connect: Host $tserver not listed in configuration");
+     return;
+    }
+    $port = $port || $$tserverinfo[2] || 6667;
+    my $socket =
+      IO::Socket::INET->new(PeerAddr => $$tserverinfo[1],
+			    PeerPort => $port,
+			    Proto    => 'tcp');
+    if(defined($socket)) {
+      &main::addinitiatedclient($socket,
+				"PASS :$$tserverinfo[2]\r\n" .
+				"SERVER ".$this->server->name." 1 0 ".time." Px1 :".$this->server->description."\r\n");
+    } else {
+      $this->notice($this->server,"Failed to connect to $tserver port $port");
+    }
+  } else {
+    # Forward the connect request to another server
+  }
 }
 
 # KILL nick :excuse
 sub handle_kill {
   my $this = shift;
-  my($command,$target,$excuse) = split(/\s+/,shift,3);
+  my($command,$target,$excuse) = split/\s+/,shift,3;
   $excuse =~ s/^://;
   # Look the user up, call $user->kill($this,$excuse)
   # Of course, that requires Users have a kill method.
@@ -975,8 +970,7 @@ sub handle_quit {
   my $this = shift;
   my($command,$msg) = split(/\s+/,shift,2);
   $msg =~ s/^://;
-  my $server;
-  foreach $server ($this->server->children) {
+  foreach my $server ($this->server->children) {
     $server->uquit($this,$msg);
   }
   $this->quit($msg);
@@ -1184,18 +1178,18 @@ sub ping {
 sub quit {
   my $this = shift;
   my $msg  = shift;
-  my($channame,$channel);
+  my($channame);
   # Remove them from all appropriate structures, etc
   # and announce it to local channels
-  foreach $channame (keys(%{$this->{hasinvitation}})) {
-    $channel = Utils::lookupchannel($channame);
+  foreach $channame (keys(%{$this->{'hasinvitation'}})) {
+    my $channel = Utils::lookupchannel($channame);
     if(ref($channel) && isa($channel,"Channel")) {
-      delete($channel->{hasinvitation}->{$this});
+      delete($channel->{'hasinvitation'}->{$this});
     }
   }
   # Notify all the channels they're in of their disconnect
-  foreach $channel (keys(%{$this->{channels}})) {
-    $this->{channels}->{$channel}->notifyofquit($this,$msg);
+  foreach my $channel (keys(%{$this->{'channels'}})) {
+    $this->{'channels'}->{$channel}->notifyofquit($this,$msg);
   }
   # Tell connected servers that they're gone
   $this->server->removeuser($this);

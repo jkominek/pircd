@@ -2,7 +2,7 @@
 # 
 # LocalServer.pm
 # Created: Sat Sep 26 18:11:12 1998 by jay.kominek@colorado.edu
-# Revised: Wed May 26 21:07:29 1999 by jay.kominek@colorado.edu
+# Revised: Sun Jun 27 23:39:58 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -35,15 +35,17 @@ sub new {
   my $class = ref($proto) || $proto;
   my $this  = { };
 
-  $this->{conffile} = (shift||"server.conf");
-  &loadconffile($this);
+  $this->{'conffile'} = shift || "server.conf";
 
-  tie my %opertmp,  'Tie::IRCUniqueHash';
+  my(%opertmp,%usertmp,%childtmp);
+  tie %opertmp,  'Tie::IRCUniqueHash';
   $this->{'opers'}    = \%opertmp;
-  tie my %usertmp,  'Tie::IRCUniqueHash';
+  tie %usertmp,  'Tie::IRCUniqueHash';
   $this->{'users'}    = \%usertmp;
-  tie my %childtmp, 'Tie::IRCUniqueHash';
+  tie %childtmp, 'Tie::IRCUniqueHash';
   $this->{'children'} = \%childtmp;
+
+  &loadconffile($this);
 
   bless($this, $class);
   return $this;
@@ -52,7 +54,7 @@ sub new {
 sub loadconffile {
   my $this = shift;
 
-  open(CONF,$this->{conffile});
+  open(CONF,$this->{'conffile'});
   my @lines = <CONF>;
   close(CONF);
   my $line;
@@ -61,24 +63,24 @@ sub loadconffile {
 
     # Machine line
     if($line =~ /^M:([\w\d\.]+):\*:([^:]+):(\d+)/) {
-      $this->{name}        = $1;
-      $this->{description} = $2;
-      $this->{port}        = $3;
+      $this->{'name'}        = $1;
+      $this->{'description'} = $2;
+      $this->{'port'}        = $3;
       next CONFPARSE;
     }
     # Admin line
     if($line =~ /^A:([^:]+):([^:]+):([^:]+)/) {
-      @{$this->{admin}} = ($1,$2,$3);
+      @{$this->{'admin'}} = ($1,$2,$3);
       next CONFPARSE;
     }
     # MOTD line
     if($line =~ /^MOTD:(.+)$/) {
       if(open(MOTD,$1)) {
-	@{$this->{motd}} = <MOTD>;
+	@{$this->{'motd'}} = <MOTD>;
 	close(MOTD);
-	chomp(@{$this->{motd}});
+	chomp(@{$this->{'motd'}});
       } else {
-	@{$this->{motd}} = ($1);
+	@{$this->{'motd'}} = ($1);
       }
       next CONFPARSE;
     }
@@ -88,8 +90,8 @@ sub loadconffile {
       $mask =~ s/\./\\\./g;
       $mask =~ s/\?/\./g;
       $mask =~ s/\*/\.\*/g;
-      $this->{opers}->{$nick}->{mask} = $mask;
-      $this->{opers}->{$nick}->{password} = $password;
+      $this->{'opers'}->{ $nick }->{'mask'} = $mask;
+      $this->{'opers'}->{ $nick }->{'password'} = $password;
       next CONFPARSE;
     }
     # Kill Line
@@ -101,7 +103,19 @@ sub loadconffile {
       $usermask =~ s/\./\\\./g;
       $usermask =~ s/\?/\./g;
       $usermask =~ s/\*/\.\*/g;
-      $this->{klines}->{$mask} = [$usermask,$mask,$reason];
+      $this->{'klines'}->{$mask} = [$usermask,$mask,$reason];
+      next CONFPARSE;
+    }
+    # Connection Line
+    if($line =~ /^C:([^:]+):([^:]+):([^:]+):?(\d*)$/) {
+      my($server,$address,$password,$port) = ($1,$2,$3,$4 || 0);
+      $this->{'connections'}->{$server} = [$server,$address,$password,$port];
+      next CONFPARSE;
+    }
+    # Network Line
+    if($line =~ /^N:([^:]+):([^:]+):([^:]+)$/) {
+      my($server,$address,$password) = ($1,$2,$3,$4);
+      $this->{'nets'}->{$server}     = [$server,$address,$password];
       next CONFPARSE;
     }
   }
@@ -200,12 +214,21 @@ sub getadmin {
 
 sub getopers {
   my $this = shift;
-  my %tmp = ();
-  if(defined($this->{'opers'})) {
-    return $this->{'opers'};
-  } else {
-    return \%tmp;
-  }
+  my @foo = keys %{$this->{'opers'}};
+  print "getopers: @foo\n";
+  return $this->{'opers'};
+}
+
+sub lookupconnection {
+  my $this   = shift;
+  my $server = shift;
+  return $this->{'connections'}->{$server};
+}
+
+sub lookupnetwork {
+  my $this   = shift;
+  my $server = shift;
+  return $this->{'nets'}->{$server};
 }
 
 ###############################
