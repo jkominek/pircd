@@ -1,0 +1,24 @@
+pircd and SSL
+-------------
+
+pircd uses the very cool IO::Socket::SSL module to provide SSL
+connections. This means that to use SSL with pircd, you also have
+to appease IO::Socket::SSL. Use the OpenSSL tools to create:
+
+* server-key.pem
+* server-cert.pem
+* client-key.pem
+* client-cert.pem
+
+And toss them into the certs directory underneath where you run
+pircd. Later versions which have more comprehensive SSL support
+will allow you to place the the certificates and keys wherever
+you please and specify the location.
+
+At the moment however, all the SSL support does is:
+
+* Allow you to connect in an encrypted fashion.
+* Indicate which users are connected to the server via SSL in /whois
+
+- Jay Kominek <jay.kominek@colorado.edu>
+  If all else fails, increase the amperage.
