@@ -51,8 +51,8 @@ my $commands={
 		    $this->{ready} = 1;
 		}
 	    } else {
-		$this->senddata(":".$this->server->name.
-				" 513 To connect, type /QUOTE PONG $this->{doing_nospoof}\r\n");
+	      $this->sendreply(
+		   "513 :To connect, type /QUOTE PONG $this->{doing_nospoof}");
 	    }
 	}
     },
@@ -193,6 +193,31 @@ sub sendnumeric {
     $this->senddata(":$fromstr $numeric $destnick ".join(' ',@arguments)." :$msg\r\n");
   } else {
     $this->senddata(":".join(' ',$fromstr,$numeric,$destnick,@arguments)."\r\n");
+  }
+}
+
+# send one or more reply line to a peer
+# this is a nicer substitute for sendnumeric and wrapper for senddata.
+# each argument is a string, which is sent as a reply line. if the string
+# starts with a colon, that is used as the "from", otherwise the server name
+# is used. the rest if the string is a code, then a space, then data.
+# sendreply will insert the destination nick between the code and the data.
+# if part of the data is a multi-word argument, the colon must be explicitly
+# included; sendreply won't magically add one in.
+sub sendreply {
+  my($this,@replies)=@_;
+  my($reply,$fromstr,$repcode,$data,$destnick);
+  
+  defined($destnick=$this->{nick}) or $destnick='*';
+  
+  foreach $reply (@replies) {
+    if($reply=~/^:/) {
+      ($fromstr,$reply)=$reply=~/(\S+)\s+(.*)/;
+    } else {
+      $fromstr=":${$$this{server}}{name}";
+    }
+    ($repcode,$data)=$reply=~/(\S*)\s+(.*)/;
+    $this->senddata("$fromstr $repcode $destnick $data\r\n");
   }
 }
 
