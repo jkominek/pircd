@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Sat Feb  6 10:12:14 1999 by jay.kominek@colorado.edu
+# Revised: Sun Feb  7 22:57:16 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # This program is free software; you can redistribute it and/or modify it
@@ -755,7 +755,7 @@ sub handle_trace {
 #  These commands allow a user to manipulate their state, or (in the
 # case of MODE) the state of channels.
 
-# MODE
+# MODE target :modebytes modearguments
 sub handle_mode {
   my $this = shift;
   my($command,$target,$modestr,@arguments) = split(/\s+/,shift);
@@ -764,7 +764,7 @@ sub handle_mode {
   my(@accomplishedset, @accomplishedunset);
 
   my $ret = Utils::lookup($target);
-  if(!defined($ret)) {
+  if((!defined($ret))||(!ref($ret))) {
     $this->sendnumeric($this->server,403,($target),"No such channel.");
     return;
   }
@@ -772,26 +772,26 @@ sub handle_mode {
     # We're going to try and change a user's modes.
     if($ret eq $this) {
       # We're trying to change our own modes
-      my $state = 1;
-      MODEBYTE: foreach(@modebytes) {
-	if($_ eq "+") {
+      my($state,$byte) = (1,'');
+      MODEBYTE: foreach $byte (@modebytes) {
+	if($byte eq "+") {
 	  $state = 1;
-	} elsif($_ eq "-") {
+	} elsif($byte eq "-") {
 	  $state = 0;
 	} else {
 	  if(!$this->ismode('o')) {
-	    if(grep {/$_/} ("o","k","g")) {
+	    if(grep {/$byte/} ("o","k","g")) {
 	      next MODEBYTE;
 	    }
 	  }
 	  if($state) {
-	    if($this->setmode($_)) {
-	      push(@accomplishedset,$_);
+	    if($this->setmode($byte)) {
+	      push(@accomplishedset,$byte);
 	    }
 	  } else {
-	    if($this->unsetmode($_)) {
-	      push(@accomplishedunset,$_);
-	      if($_ eq 'o') {
+	    if($this->unsetmode($byte)) {
+	      push(@accomplishedunset,$byte);
+	      if($byte eq 'o') {
 		if($this->unsetmode('g')) {
 		  push(@accomplishedunset,'g'); }
 		if($this->unsetmode('k')) {
@@ -1035,11 +1035,17 @@ sub unsetmode {
     return 0;
   }
   if($this->{modes}->{$mode}) {
-    $this->{modes}->{$mode} = 0;
+    delete($this->{modes}->{$mode});
     return 1;
   } else {
     return 0;
   }
+}
+
+sub genmodestr {
+  my $this = shift;
+  my %modestr = %{$this->{modes}};
+  return ("+".join('',keys(%modestr)));
 }
 
 # Last time this user was active
