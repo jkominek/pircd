@@ -290,7 +290,7 @@ sub unsetvoice {
 sub mode {
   my($this,$user,$modestr,@arguments)=@_;
   my @modebytes = split(//,$modestr);
-  my(@accomplishedset,@accomplishedunset,@accomplishedargs);
+  my($accomplishedstr,@accomplishedargs);
   my $state = 1;
   my $arg;
 
@@ -310,15 +310,18 @@ sub mode {
       
       push(@modes, $_);
     }
-    $user->sendnumeric($user->server,324,($this->{name},"+".join('',@modes),@args),undef);
-    $user->sendnumeric($user->server,329,($this->{name},$this->{'creation'}),undef);
+    $user->sendnumeric($user->server,324,
+      ($this->{name},"+".join('',@modes),@args),undef);
+    $user->sendnumeric($user->server,329,($this->{name},$this->{'creation'}),
+      undef);
     return;
   } elsif($modestr eq 'b' or ($modestr eq '+b' and $#arguments == -1)) {
     foreach(keys(%{$this->{'bans'}})) {
       my @bandata = @{$this->{'bans'}->{$_}};
       $user->sendnumeric($user->server,367,($this->{name},$_,@bandata),undef);
     }
-    $user->sendnumeric($user->server,368,($this->{name}),"End of Channel Ban List");
+    $user->sendnumeric($user->server,368,($this->{name}),
+      "End of Channel Ban List");
     return;
   }
 
@@ -337,26 +340,27 @@ sub mode {
 	$arg=shift(@arguments);
 	next if(!defined($arg));
       } else {
-	push(@accomplishedset,$_) if($state && $this->setmode($user,$_));
-	push(@accomplishedunset,$_) if(!$state && $this->unsetmode($user,$_));
+	$accomplishedstr .= "+$_" if($state && $this->setmode($user,$_));
+	$accomplishedstr .= "-$_" if(!$state && $this->unsetmode($user,$_));
 	next;
       }
       
       if($_ eq "b") {
-	$arg=$this->setban($user,$arg) if($state);
-	$arg=$this->unsetban($user,$arg) if(!$state);
+        $arg = $state ? $this->setban($user,$arg) :
+                        $this->unsetban($user,$arg);
       } elsif($_ eq "o") {
-	$arg=$this->setop($user,$arg) if($state);
-	$arg=$this->unsetop($user,$arg) if(!$state);
+        $arg = $state ? $this->setop($user,$arg) :
+                        $this->unsetop($user,$arg);
       } elsif($_ eq "v") {
-	$arg=$this->setvoice($user,$arg) if($state);
-	$arg=$this->unsetvoice($user,$arg) if(!$state);
+        $arg = $state ? $this->setvoice($user,$arg) :
+                        $this->unsetvoice($user,$arg);
       } elsif($_ eq "l") {
 	if($arg =~ /\D/) {
-	  $user->sendreply("467 $$this{name} :Channel limit value \"$arg\" is nonnumeric");
-	  next;
-	} else {
-	  $this->setmode($user,'l');
+	  $user->sendreply("467 $$this{name} :Channel limit value ".
+            "\"$arg\" is nonnumeric");
+          undef $arg;
+        } else {
+          $this->setmode($user,'l');
 	  $this->{'limit'} = $arg;
 	}
       } elsif($_ eq "k") {
@@ -375,29 +379,21 @@ sub mode {
 	}
       }
       if(defined($arg)) {
-	push(@accomplishedset,$_) if($state);
-	push(@accomplishedunset,$_) if(!$state);
+	$accomplishedstr .= ($state ? "+":"-") . $_;
 	push(@accomplishedargs,$arg);
       }
     }
   }
 
-  if($#accomplishedset>=0 || $#accomplishedunset>=0) {
-    my $changestr;
-    if($#accomplishedset>=0) {
-      $changestr = "+".join('',@accomplishedset);
-    }
-    if($#accomplishedunset>=0) {
-      $changestr .= "-".join('',@accomplishedunset);
-    }
+  if(defined($accomplishedstr)) {
     if($#accomplishedargs>=0) {
-      $changestr .= join(' ','',@accomplishedargs);
+      $accomplishedstr .= join(' ','',@accomplishedargs);
     }
     User::multisend(":$$user{nick}!$$user{user}\@$$user{host}".
-		    " MODE>$$this{name} $changestr",
+		    " MODE>$$this{name} $accomplishedstr",
 		    values(%{$this->{'users'}}));
     foreach my $server ($user->server->children) {
-      $server->mode($user,$this,$changestr);
+      $server->mode($user,$this,$accomplishedstr);
     }
   }
 }
