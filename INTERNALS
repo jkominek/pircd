@@ -1,0 +1,241 @@
+                          _           _             _      
+                     _ __(_)_ _ __ __| |  __ _ _  _| |_ ___
+                    | '_ \ | '_/ _/ _` | / _` | || |  _(_-<
+                    | .__/_|_| \__\__,_| \__, |\_,_|\__/__/
+                    |_|                  |___/             
+
+ This document describes the design and internals of pircd, so that you, the
+reader, may more quickly and accurately learn how to modify pircd. I must
+admit however, that this is being written more for my benefit, as I go back
+through the pircd source code in an attempt to remember how it worked, after
+having left it sit for about 2 months. You may be one of those people laughs
+at the idea of commenting your code. I used to be one of those people, too.
+Sure, it may be silly to comment your code other other people. _But_, it is
+not silly to comment your code for yourself. If you leave it to work on
+something else for some extended period of time, you _will_ forget how it
+works, and then you will flounder and look silly whilst you try to remember
+how it worked. I know. It happened to me.
+
+Contents:
+##########################################################################
+# 1.  pircd                                                              #
+# 2.  Utils.pm                                                           #
+# 3.  LocalServer.pm                                                     #
+# 3a. server.conf description                                            #
+# 4.  User.pm                                                            #
+# 5.  Channel.pm                                                         #
+# 6.  Server.pm                                                          #
+##########################################################################
+
+##########################################################################
+# pircd                                                                  #
+##########################################################################
+
+ Command Line Parsing
+ --------------------
+ One of the first bits of real processing that pircd does is to parse the
+command line for relevent options. This is actually done using the
+Getopt::Long Perl module, so there is not much to talk about. Using ||
+kung-fu, the displayhelp subroutine will be called should the parsing
+fail.
+
+ Daemonization
+ -------------
+ If daemonization has been selected, fork() will be called, with the parent
+exiting. It then attempts to create a new session, with itself as the parent.
+(This also removes any controlling tty)
+
+ Listening Socket
+ ----------------
+ pircd uses IO::Socket::INET to create a listening socket. The port defaults
+to 6667, with a backlog of 10. Both values are changable via the command line.
+If IO::Socket::INET fails to return a valid socket, pircd will log an error
+message, and exit. Slightly after that, IO::Select is used to allow easy
+select()ing of the sockets. The listening socket is passed to the constructor.
+
+ Local Server creation and Configuration file parsing
+ ----------------------------------------------------
+ Next is the instantiation of LocalServer passing the location of the
+configuration file to the constructor. The instance is then stored in
+the global hash of servers.
+
+ Infinite Loop
+ =============
+ Here, the main work of the daemon is done. The current timestamp is stored
+at the beginning, since on a system with lots of connections, we would
+probably need it multiple times during that loop. We then proceed to loop
+over each socket which can be read from at the moment.
+{
+ * When the newly active socket happens to be the listening one, we seperate
+the new socket from the listening one by accept()ing, make the new socket
+non-blocking, create a new instance of Connection to represent the connection,
+and add it to the right arrays.
+ * If it is a client socket, and we have it in our hash of connections, then
+get some data off of it. If there was some error in getting data off of the
+socket, then generate the appropriate error and disconnect it, etc. Otherwise,
+it appends the data it got to the data waiting for that connection's socket.
+Then some fu is done to split the inbuffer into ready lines, each one of which
+will be \n terminated.
+ * If we got some data, and it was not the listening socket, and it was not
+a socket for which we've got a connection structure thingy, then it must be
+some sort of martian.
+}
+
+ Next, we go through each client which has some full lines waiting for it,
+and then we go through every full line, and provide it to that client's object.
+
+ After that, we iterate over the list of connections which we can write to.
+We skip over any which don't have some stuff waiting thier out buffers, and
+then attempt to flush the outbuffers of those who do have some stuff waiting
+for them. If we sent some stuff, trim it off of the outbuffer, and carry on.
+Otherwise, check to see if there was some sort of error, if there was,
+generate a write error for that client and toss it.
+
+ Almost at the end of the loop, we iterate through every connection and see
+which ones have been idle for an extended period of time, and test their
+connectivity, disconnecting them if they fail to respond for an even more
+extended period of time. (The PING/PONG part of the protocol)
+
+ Finally, we iterate through the list of clients which have not yet finalized
+as Users or Servers and see if they have finalized. If they have, we get their
+new object off of them, add it to the appropriate hashes, and toss the old
+object.
+
+ Subroutines
+ ===========
+
+ finishclient
+ ------------
+ Removes a given client from all relevent data structures, takes it out of
+the IO::Select list (bad things happen if you do not), and closes the socket.
+
+ setnonblocking
+ --------------
+ Uses fcntl to set the socket to O_NONBLOCK
+
+ displayhelp
+ -----------
+ Prints out command line help, and calls exit()
+
+##########################################################################
+# Utils.pm                                                               #
+##########################################################################
+
+ The Utils package contains the globalish data structures for users, servers,
+and channels. It also has some functions for looking up items stored in those
+structures. There is no constructor.
+
+ Subroutines
+ ===========
+
+ lookup
+ ------
+ Uses clues in the data passed to it to determine where to lookup the string
+given to it. Will find users, channels or servers, if they exist.
+
+ lookup{user,channel,server}
+ ---------------------------
+ Only looks for users, channels and servers, respectivly.
+
+ {users,channels,servers}
+ ------------------------
+ Returns references to the users, channels and servers hashes, respectivly,
+should you need to iterate over all of them.
+
+ syslog
+ ------
+ Takes two arguments, the first being the priority at which to log the message,
+the second being the message itself. Automatically opens the connection to
+syslogd, if it is not already open.
+
+##########################################################################
+# LocalServer.pm                                                         #
+##########################################################################
+
+ There should only ever be one instance of LocalServer, as it represents this
+instance of pircd (and you should never have more than one). The constructor
+takes a single argument, the location of the server configuration file.
+However, if that argument is not provided, it will default to "server.conf".
+
+ Subroutines
+ ===========
+
+ loadconffile
+ ------------
+ Reads in and parses the configuration file, line at a time.
+
+ rehash
+ ------
+ Instructs the server to reread its configuration file. It also notifies
+all local users which are +s.
+
+ opernotify
+ ----------
+ Sends a server notice to all local users which are +s.
+
+ name        - Returns the name of the server.
+ lcname      - Returns the properly lc'd name of the server.
+ description - Returns a textual description of the server.
+ users       - Returns a list of references to all the users on the server.
+ children    -    "    "   "   "      "      "  "   "  servers on the server.
+ parent      - Returns undef, since the local server has no parents,
+               according to itself.
+ hops        - Returns 0, as the local server is 0 hops from itself.
+ version     - Returns a version string for this server.
+ getadmin    - Returns a list of three lines of admin data
+ getopers    - Returns a reference to a hash of the server's opers.
+ adduser     - Stores a user in the server's data structures
+ removeuser  - Removes a user from the server's data structures
+ addchildserver    - Stores a child server in the server's data structures.
+ removechildserver - Removes a child server from the server's data structures.
+
+#############################
+# Configuration File Format #
+#############################
+
+M:<name>:<description>:<port>
+ The _M_achine line tells the server its hostname, description, and the port
+it should listen on, unless the -p option is given. However, the port option
+does not yet work
+
+A:<line 1>:<line 2>:<line 3>
+ The _A_dmin line provides three lines of information about the administration
+of the IRC server.
+
+MOTD:<.+>
+ The MOTD (Message of the Day) line can either be a single line of text, in
+which case, the MOTD as displayed to the user will be a single line, or, if
+it is a valid file name, the contents of that file will be used.
+
+O:<nick>:<mask>:<password>
+ The _O_per line defines what users are allowed to gain operator privilages,
+and the passwords which they have to use to do so.
+
+##########################################################################
+# User.pm                                                                #
+##########################################################################
+
+ The User package is instantiated for every user on the IRC network. It
+contains all the information we need to know about them, and provides methods
+to do/send things to them, whether they are local users or not.
+
+ Currently, the constructor can only handle local users, which pass a
+Connection object to the constructor. The constructor then acquires all of
+the needed data from the Connection object, blesses the right what not, and
+then adds the User to its parent Server object.
+
+ Subroutines and Methods
+ =======================
+
+ setupaslocal
+ ------------
+ Given a socket, and a reference to the out going buffer, turns the User into
+a local user, and does the appropriate dance, including the installation of
+command handlers, and sending the user startup messages, such as numerics
+001 through 004, LUSERS output, the highest connection count, and the MOTD.
+
+ handle
+ ------
+ The initial input handler, it takes a raw line from the socket, does the
+initial bit of prechewing, updates the last time of activity for the User,
+and will cancel the need for a response to a connectivity test.
