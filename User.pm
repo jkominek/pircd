@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Sun Feb  7 22:57:16 1999 by jay.kominek@colorado.edu
+# Revised: Mon Feb  8 23:40:16 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # This program is free software; you can redistribute it and/or modify it
@@ -54,6 +54,7 @@ sub new {
   $this->{'lookup'}      = $connection->{'lookup'};
   $this->{'connected'}   = $connection->{'connected'};
   $this->{'last_active'} = time();
+  $this->{'last_nickchange'} = 0;
 
   bless($this, $class);
   if(defined($connection->{'socket'})) {
@@ -114,6 +115,7 @@ sub setupaslocal {
   $this->addcommand('MODE',   \&handle_mode);
   $this->addcommand('OPER',   \&handle_oper);
   $this->addcommand('AWAY',   \&handle_away);
+  $this->addcommand('NICK',   \&handle_nick);
 
   # Operish stuff
   $this->addcommand('SQUIT',  \&handle_squit);
@@ -869,6 +871,35 @@ sub handle_away {
   } else {
     delete($this->{awaymsg});
     $this->sendnumeric($this->server,305,"You are no longer marked as away.");
+  }
+}
+
+# NICK :mynewnick
+sub handle_nick {
+  my $this = shift;
+  my($command,$newnick) = split(/\s+/,shift,2);
+  $newnick =~ s/^://;
+  # the value of 30 used below should be configurable somehow
+  if(time()-$this->{'last_nickchange'}<30) {
+    $this->sendnumeric($this->server,438,$newnick,"Nick change too fast. Please wait ".(30-(time()-$this->{'last_nickchange'}))." more seconds.");
+    return;
+  } else {
+    if(!defined(Utils::lookup($newnick))) {
+      $this->{'oldnick'} = $this->{'nick'};
+      delete(Utils::users()->{$this->lcnick()});
+      $this->server->removeuser($this->{'oldnick'});
+      $this->server->adduser($this);
+      $this->{'nick'}    = $newnick;
+      Utils::users()->{$this->lcnick()} = $this;
+      $this->senddata(":".$this->{'oldnick'}." NICK :".$this->{'nick'}."\r\n");
+      my $channel;
+      foreach $channel (values(%{$this->{'channels'}})) {
+	$channel->nickchange($this);
+      }
+      # propogate to other servers
+    } else {
+      $this->sendnumeric($this->server,433,$newnick,"Nickname already in use");
+    }
   }
 }
 
