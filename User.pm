@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Tue Feb  8 19:35:08 2000 by jay.kominek@colorado.edu
+# Revised: Sun Feb 13 13:56:14 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -634,7 +634,7 @@ sub handle_stats {
 # VERSION
 sub handle_version {
   my $this = shift;
-  $this->sendnumeric($this->server->{name},351,($this->server->{version},$this->server->{name}),"some crap");
+  $this->sendnumeric($this->server,351,($this->server->{version},$this->server->{name}),"some crap");
 }
 
 # TIME
