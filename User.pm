@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Tue Jan 18 17:59:56 2000 by jay.kominek@colorado.edu
+# Revised: Thu Jan 20 21:44:00 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -464,8 +464,24 @@ sub handle_whowas {
   my $target;
 
   foreach $target (split(/,/,$targets)) {
-
+    my $lctarget = Utils::irclc($target);
+    my $found = 0;
+    foreach my $entry (@Utils::nickhistory) {
+      if(Utils::irclc($entry->{'nick'}) eq $lctarget) {
+	$this->sendnumeric($this->server,314,
+			   $entry->{'nick'},
+			   $entry->{'username'},
+			   $entry->{'host'},
+			   "*",$entry->{'ircname'});
+	$this->sendnumeric($this->server,312,
+			   $entry->{'nick'},$entry->{'server'},
+			   scalar localtime $entry->{'time'});
+	$found = 1;
+      }
+    }
+    $this->sendnumeric($this->server,406,$target,"There was no such nickname") unless $found;
   }
+  $this->sendnumeric($this->server,369,$targets,"End of /WHOWAS");
 }
 
 # ISON nick nick nick
@@ -1113,6 +1129,13 @@ sub quit {
   my($this,$msg)=@_;
   my $channame;
   my @foo;
+
+  unshift @Utils::nickhistory, { nick => $this->nick,
+				 username => $this->username,
+				 host => $this->host,
+				 ircname => $this->ircname,
+				 server => $this->server->name,
+				 time => time };
 
   # Remove them from all appropriate structures, etc
   # and announce it to local channels

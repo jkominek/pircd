@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Tue Jan 18 17:57:42 2000 by jay.kominek@colorado.edu
+# Revised: Thu Jan 20 21:38:52 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -190,10 +190,6 @@ sub sendnumeric {
     $numeric = ("0" x (3 - length($numeric))).$numeric;
   }
 
-  if($#arguments>0) {
-    push(@arguments,'');
-  }
-
   $destnick = '*' unless defined($destnick=$this->{nick});
 
   $this->senddata(":".join(' ',$fromstr,$numeric,$destnick,@arguments,defined($msg)?":".$msg:( ))."\r\n");
@@ -261,6 +257,12 @@ sub donick {
     $this->{'nick'}    = $newnick;
     $this->senddata(":".$this->{'oldnick'}." NICK :".$this->{'nick'}."\r\n");
     if ($this->isa('User')) {	# not just an unpromoted connection
+      unshift @Utils::nickhistory, { nick => $this->{'oldnick'},
+				     username => $this->username,
+				     host => $this->host,
+				     ircname => $this->ircname,
+				     server => $this->server->name,
+				     time => time };
       delete(Utils::users()->{$this->{'oldnick'}});
       Utils::users()->{$this->{'nick'}}=$this;
       $this->server->removeuser($this->{'oldnick'});

@@ -2,7 +2,7 @@
 # 
 # Utils.pm
 # Created: Wed Sep 23 21:56:44 1998 by jay.kominek@colorado.edu
-# Revised: Sat Nov 20 04:05:48 1999 by tek@wiw.org
+# Revised: Thu Jan 20 21:29:11 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -28,6 +28,7 @@ use Tie::IRCUniqueHash;
 tie my %users,    'Tie::IRCUniqueHash';
 tie my %servers,  'Tie::IRCUniqueHash';
 tie my %channels, 'Tie::IRCUniqueHash';
+    my @nickhistory;
 
 my $syslogsetup = 0;
 
