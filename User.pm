@@ -463,7 +463,7 @@ sub handle_whois {
     my @targets = split(/,/,$excess[0]);
     foreach(@targets) {
       my $user = Utils::lookup($_);
-      if(defined($user)) {
+      if(defined($user) && isa($user, "User")) {
 	# *** Nick is user@host (Irc Name)
 	$this->sendnumeric($this->server,311,($user->nick,$user->username,$user->host,"*"),$user->ircname);
 	# *** on channels: #foo @#bar +#baz
