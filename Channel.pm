@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Thu Jan 27 22:33:25 2000 by jay.kominek@colorado.edu
+# Revised: Wed Feb  2 10:35:29 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -482,6 +482,8 @@ sub join {
   #do the actual join
   $this->force_join($user,$user->server);
 
+  $user->sendnumeric($user->server,332,$this->{'name'},$this->{'topic'}) if defined $this->{'topic'};
+  $user->sendnumeric($user->server,333,$this->{'name'},$this->{'topicsetter'},$this->{'topicsettime'},undef) if defined $this->{'topicsetter'};
   if(1==scalar keys(%{$this->{'users'}})) {
     $this->setop($user,$user->nick());
   }
@@ -489,7 +491,7 @@ sub join {
     $this->topic($user);
   }
   $this->names($user);
-  $user->sendnumeric($user->server,366,$user->nick,$this->{name},"End of /NAMES list.");
+  $user->sendnumeric($user->server,366,$this->{name},"End of /NAMES list.");
 }
 
 # Called by (servers) to forcibly add a user, does no checking.
