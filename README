@@ -1,7 +1,7 @@
                                   _                _ 
                            _ __  (_) _ __  ___  __| |
                           | '_ \ | || '__|/ __|/ _` |
-                          | |_) || || |  | (__| (_| |  Alpha Eight
+                          | |_) || || |  | (__| (_| |  Alpha Nine
                           | .__/ |_||_|   \___|\__,_|
     _   _                 |_|    _   _             _   
    | |_| |_  ___   _ __  ___ _ _| | (_)_ _ __   __| |__ _ ___ _ __  ___ _ _  
@@ -33,7 +33,7 @@ that they are not (numeric values, if I remember how ircu does it).
 
  pircd is now reasonably complete. It lacks nick history, commands based upon
 nick history, /STATS output that has any relation to reality, interserver
-communication, and a few finishing touches. As of this writing, it is 2854
+communication, and a few finishing touches. As of this writing, it is 3115
 lines long (counting comments and everything). I do not anticipate it getting
 past twice that with the addition of the remaining features. (interserver
 communication being the big one.)
@@ -47,6 +47,8 @@ consult the included file, 'INTERNALS'.
  * The following Perl modules:
     Fcntl, Getopt::Long, IO::Select, IO::Socket,
     POSIX, Sys::Syslog, Tie::RefHash, UNIVERSAL
+     In the future, I may make use of Compress::Zlib, however
+     I imagine its use will be optional.
  * A computer
  * A port that you can bind to, preferably 6667
 
