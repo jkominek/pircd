@@ -10,7 +10,7 @@ admit however, that this is being written more for my benefit, as I go back
 through the pircd source code in an attempt to remember how it worked, after
 having left it sit for about 2 months. You may be one of those people laughs
 at the idea of commenting your code. I used to be one of those people, too.
-Sure, it may be silly to comment your code other other people. _But_, it is
+Sure, it may be silly to comment your code for other people. _But_, it is
 not silly to comment your code for yourself. If you leave it to work on
 something else for some extended period of time, you _will_ forget how it
 works, and then you will flounder and look silly whilst you try to remember
