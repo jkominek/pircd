@@ -2,7 +2,7 @@
 # 
 # pircd
 # Created: Mon Sep 14 12:55:01 1998 by jay.kominek@colorado.edu
-# Revised: Tue Dec 12 19:40:07 2000 by jay.kominek@colorado.edu
+# Revised: Wed Dec 13 18:22:33 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -84,7 +84,7 @@ foreach my $tmpport ($port,@{ $tmp->{'ports'} }) {
       Utils::syslog('err',"Failed to open listening socket on port $tmpport: $@");
 	exit(-1);
     }
-    $serversocks{$server} = 1;
+    $serversocks{$server} = $tmpport;
 }
 
 if($ssl) {
@@ -99,7 +99,7 @@ if($ssl) {
 	  Utils::syslog('err',"Failed to open SSL listening socket on port $tmpport: $@");
 	    exit(-1);
 	}
-	$serversocks{$sslserver} = 1;
+	$serversocks{$sslserver} = $tmpport;
     }
 }
 
@@ -123,7 +123,7 @@ for(;;) {
   my $client;
   my $time;
 
-  foreach $client ($select->can_read(0.5)) {
+  foreach $client ($select->can_read(1)) {
     if($serversocks{$client}) {
       # Activity on the listening socket means we have a new
       # client attempting to connect.
@@ -157,13 +157,9 @@ for(;;) {
     } else {
       # We've got activity on a martian socket!
     }
-  }
 
-  $time = time();
-
-  foreach $client (keys %inbuffer) {
     # if we got a whole line(s), process it
-    while(($timer{$client} - $Utils::thisserver->{'mechanics'}->{FLOODOFFLINES} <= $time) &&
+    while( ($timer{$client} - $Utils::thisserver->{'mechanics'}->{FLOODOFFLINES} <= $time) &&
 	  (($theline, $therest)=$inbuffer{$client}=~/([^\n]*)\n(.*)/s)) {
       $inbuffer{$client}=$therest;
       # if the client used CRLF, strip the "\r"
@@ -177,6 +173,8 @@ for(;;) {
       $connections{$client}->quit("Flood");
     }
   }
+
+  $time = time();
 
   # This stuff handles testing the connectivity of all the
   #  connections.
@@ -232,7 +230,7 @@ for(;;) {
   }
 
   # Look to see which of our sockets can be written to at the moment
-  foreach $client ($select->can_write(0.5)) {
+  foreach $client ($select->can_write(0)) {
     # Skip it if we don't have anything available to send it.
     next unless $outbuffer{$client};
     # Actually attempt to send some of the data.
@@ -271,7 +269,7 @@ for(;;) {
     if $Utils::stats{highconnections}<$count;
 
   # Trim the history down to the most recent 32
-  splice @Utils::nickhistory, 32;
+  splice @Utils::nickhistory, 32; # you can up this for high traffic servers
 }
 
 END {
