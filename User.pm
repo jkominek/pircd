@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Thu Jan 27 15:23:22 2000 by jay.kominek@colorado.edu
+# Revised: Sat Jan 29 18:48:41 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -117,7 +117,7 @@ sub sendsplash {
   $this->sendnumeric($this->server,4,($this->server->{name},$this->server->VERSION,"dioswkg","biklmnopstv"),undef);
   # Send them LUSERS output
   $this->handle_lusers("LUSERS");
-  $this->notice($this->server,"Highest connection count: 0 (0 clients)");
+  $this->notice($this->server,"Highest connection count: ".$Utils::stats{highconnections}." (".$Utils::stats{highclients}." clients)");
   # Send them the MOTD upon connection
   $this->handle_motd("MOTD");
 }
@@ -171,9 +171,7 @@ sub msg_or_notice {
 	if($server->{name} =~ /$matchingservers$/) {
 	  if($server eq $this->server) {
 	    my @users = $this->server->users();
-	    foreach my $user (@users) {
-	      $user->senddata(":".$this->nick."!".$this->username."\@".$this->host." $string $target :".$msg."\r\n");
-	    }
+	    multisend(":".$this->nick."!".$this->username."\@".$this->host." $string>$target :".$msg, @users);
 	  } else {
 	    # The server is remote. Dispatch the global privmsg/notice
 	  }
@@ -185,11 +183,7 @@ sub msg_or_notice {
       $matchingusers =~ s/\./\\\./g;
       $matchingusers =~ s/\?/\./g;
       $matchingusers =~ s/\*/\.\+/g;
-      foreach my $user ($this->server->users()) {
-	if($user->host =~ /$matchingusers/) {
-	  $user->senddata(":".$this->nick."!".$this->username."\@".$this->host." $string $target :".$msg."\r\n");
-	}
-      }
+      multisend(":".$this->nick."!".$this->username."\@".$this->host." $string>$target :".$msg,	grep { $_->host =~ /$matchingusers/ } $this->server->users());
       # dispatch globally.
     } else {
       # ..lookup the associated object..
@@ -399,8 +393,7 @@ sub handle_whois {
 	# *** on channels: #foo @#bar +#baz
 	my @names;
 	if(scalar keys(%{$user->{channels}})>0) {
-	  foreach(keys(%{$user->{channels}})) {
-	    my $channel = Utils::channels()->{$_};
+	  foreach my $channel (values(%{$user->{channels}})) {
 	    unless($channel->ismode('s') &&
 		   !defined($channel->{users}->{$this->nick()}) &&
 		   !$this->ismode('g')) {
@@ -511,12 +504,11 @@ sub handle_ison {
 # USERHOST nick nick nick
 sub handle_userhost {
   my($this,$dummy,$targets)=(shift,shift,shift);
-  my $target;
   my @results;
 
-  foreach $target (split(/\s+/,$targets)) {
-    my $ret = Utils::lookup($target);
-    if(defined($ret) && $ret->isa("User")) {
+  foreach my $target (split(/\s+/,$targets)) {
+    my $ret = Utils::lookupuser($target);
+    if(defined $ret) {
       push(@results,$ret->nick."=".(defined($ret->away)?"-":"+").$ret->username."\@".$ret->host);
     }
   }
@@ -553,13 +545,12 @@ sub handle_list {
 # NAMES
 sub handle_names {
   my($this,$dummy,$channels)=(shift,shift,shift);
-  my $chan;
   my @chanlist;
   my $foo;
   my $waswildcard=0;
 
   if(defined($channels)) {
-    foreach $chan (split(/,/,$channels)) {
+    foreach my $chan (split(/,/,$channels)) {
       $foo=Utils::lookup($chan);
       if(defined($foo) && $foo->isa("Channel")) {
 	push @chanlist, $foo;
@@ -572,7 +563,7 @@ sub handle_names {
     $waswildcard=1;
   }
 
-  foreach $chan (@chanlist) {
+  foreach my $chan (@chanlist) {
     unless($chan->ismode('s') &&
 	   !defined($chan->{users}->{$this->nick()}) &&
 	   !$this->ismode('g')) {
@@ -816,10 +807,11 @@ sub handle_oper {
     my %info  = %{ $opers->{$nick} };
     if($mymask =~ /$info{mask}$/i) {
       if(crypt($password,$info{password}) eq $info{password}) {
+	my $modestr = "o";
 	$this->setmode('o');
-	$this->setmode('w');
-	$this->setmode('s');
-	$this->senddata(":".$this->nick." MODE ".$this->nick." :+ows\r\n");
+	$modestr .= "w" if $this->setmode('w');
+	$modestr .= "s" if $this->setmode('s');
+	$this->senddata(":".$this->nick." MODE ".$this->nick." :+$modestr\r\n");
 	$this->sendnumeric($this->server,381,"Your are now an IRC Operator");
       } else {
 	$this->sendnumeric($this->server,464,"Password Incorrect.");
@@ -931,11 +923,7 @@ sub handle_wallops {
   }
 
   $message =~ s/^://;
-  foreach $user ($this->server->users()) {
-    if($user->ismode('w')) {
-      $user->senddata(":".$this->nick."!".$this->username."\@".$this->host." WALLOPS :$message\r\n");
-    }
-  }
+  multisend(":".$this->nick."!".$this->username."\@".$this->host." WALLOPS>:$message",grep { $_->ismode('w') } $this->server->users());
   foreach $server ($this->server->children) {
     $server->wallops($this,$message);
   }
@@ -1170,7 +1158,6 @@ sub ping {
 # This happens when a person is killed.
 sub kill {
   my ($this,$excuse,$from)=@_;
-  my $channame;
   my @foo;
 
   my $outbuffer = sprintf(":%s\!%s\@%s KILL %s :%s\!%s (%s)\r\n",
@@ -1184,14 +1171,14 @@ sub kill {
 
   # Remove them from all appropriate structures, etc
   # and announce it to local channels
-  foreach $channame (keys(%{$this->{'hasinvitation'}})) {
+  foreach my $channame (keys(%{$this->{'hasinvitation'}})) {
     my $channel = Utils::lookupchannel($channame);
-    if(ref($channel) && isa($channel,"Channel")) {
+    if(defined $channel) {
       delete($channel->{'hasinvitation'}->{$this});
     }
   }
   # Notify all the channels they're in of their disconnect
-  foreach $channame (keys(%{$this->{'channels'}})) {
+  foreach my $channame (keys(%{$this->{'channels'}})) {
     push @foo, $this->{channels}->{$channame}->notifyofquit($this);
   }
   multisend(":$$this{nick}!$$this{user}\@$$this{host} QUIT>:Local kill by operator \($excuse\)",@foo);
@@ -1208,7 +1195,6 @@ sub kill {
 # This happens when the person quits.
 sub quit {
   my($this,$msg)=@_;
-  my $channame;
   my @foo;
 
   unshift @Utils::nickhistory, { nick => $this->nick,
@@ -1220,14 +1206,14 @@ sub quit {
 
   # Remove them from all appropriate structures, etc
   # and announce it to local channels
-  foreach $channame (keys(%{$this->{'hasinvitation'}})) {
+  foreach my $channame (keys(%{$this->{'hasinvitation'}})) {
     my $channel = Utils::lookupchannel($channame);
     if(ref($channel) && isa($channel,"Channel")) {
       delete($channel->{'hasinvitation'}->{$this});
     }
   }
   # Notify all the channels they're in of their disconnect
-  foreach $channame (keys(%{$this->{'channels'}})) {
+  foreach my $channame (keys(%{$this->{'channels'}})) {
     push @foo, $this->{channels}->{$channame}->notifyofquit($this);
   }
   multisend(":$$this{nick}!$$this{user}\@$$this{host} QUIT>:$msg",@foo);
@@ -1244,15 +1230,6 @@ sub quit {
 #####################################################################
 # RAW, LOW-LEVEL OR MISC SUBROUTINES
 ####################################
-
-# Adds a command to the hash of commandname->subroutine refs
-sub addcommand {
-  my $this    = shift;
-  my $command = shift;
-  my $subref  = shift;
-
-  $this->{commands}->{$command} = $subref;
-}
 
 sub sendnumeric {
   Connection::sendnumeric(@_);

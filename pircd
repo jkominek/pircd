@@ -2,7 +2,7 @@
 # 
 # pircd
 # Created: Mon Sep 14 12:55:01 1998 by jay.kominek@colorado.edu
-# Revised: Thu Jan 20 21:28:54 2000 by jay.kominek@colorado.edu
+# Revised: Sat Jan 29 18:04:54 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -75,6 +75,8 @@ if(!defined($server)) {
 
 my $tmp = LocalServer->new($conf);
 Utils::servers()->{$tmp->name()} = $Utils::thisserver = $tmp;
+$Utils::stats{highclients} = 0;
+$Utils::stats{highconnections} = 0;
 
 my $select    = IO::Select->new($server);
 # While we key these on the $client's socket object, we
@@ -216,6 +218,13 @@ for(;;) {
       next;
     }
   }
+
+  my $count = $Utils::thisserver->users();
+  $Utils::stats{highclients}=$count
+    if $Utils::stats{highclients}<$count;
+  $count = keys %connections;
+  $Utils::stats{highconnections}=$count
+    if $Utils::stats{highconnections}<$count;
 
   # Trim the history down to the most recent 32
   splice @Utils::nickhistory, 32;
