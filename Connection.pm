@@ -29,8 +29,8 @@ sub new {
   $this->{'server'}    = shift;
   $this->{'connected'} = $this->{last_active} = time();
 
-  print $this->{'socket'};
-  print "\n";
+#  print $this->{'socket'};
+#  print "\n";
   my($port,$iaddr)     = sockaddr_in(getpeername($this->{'socket'}));
   $this->{'host'}      = gethostbyaddr($iaddr,AF_INET) || inet_ntoa($iaddr);
   $this->{'host_ip'}   = inet_ntoa($iaddr);
