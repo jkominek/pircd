@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Thu Jan 27 13:44:02 2000 by jay.kominek@colorado.edu
+# Revised: Thu Jan 27 22:33:25 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -594,8 +594,8 @@ sub nickchange {
     delete $this->{'voice'}->{$user->{'oldnick'}};
   }
   
+  delete($this->{'users'}->{$user->{'oldnick'}});
   $this->{'users'}->{$user->nick()} = $user;
-  delete($this->{'users'}->{Utils::irclc($user->{'oldnick'})});
 
   return $this->{'users'};
 }
