@@ -2,22 +2,11 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Mon Feb  8 16:45:55 1999 by jay.kominek@colorado.edu
+# Revised: Fri Feb 12 12:18:25 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
-# This program is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 1, or (at your option) any
-# later version.
-# 
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 675 Mass Ave, Cambridge, MA 02139, USA.
+# Consult the file 'LICENSE' for the complete terms under which you
+# may use this file.
 # 
 #####################################################################
 # Connection object for The Perl Internet Relay Chat Daemon
@@ -110,7 +99,7 @@ sub handle {
     }
     if($line =~ /^SERVER/i) {
       my($command,$servername,$distance,$timea,$timeb,$proto,$description) =
-	split(/\s+/,$line);
+	split(/\s+/,$line,7);
       $description =~ s/^://;
       $this->{servername}  = $servername;
       $this->{proto}       = $proto;
@@ -137,6 +126,7 @@ sub handle {
 sub quit {
   my $this = shift;
   my $msg  = shift;
+  &main::finishclient($this->{'socket'});
 }
 
 sub last_active {
@@ -149,7 +139,7 @@ sub ping {
 }
 
 sub ping_in_air {
-  return 0;
+  return 1;
 }
 
 sub readytofinalize {
