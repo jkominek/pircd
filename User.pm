@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Mon Nov 30 17:31:03 1998 by jay.kominek@colorado.edu
+# Revised: Wed Dec  2 21:18:39 1998 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # This program is free software; you can redistribute it and/or modify it
@@ -122,8 +122,8 @@ sub setupaslocal {
   $this->addcommand('QUIT',   \&handle_quit);
 
   $this->sendnumeric($this->server,1,"Welcome to the Internet Relay Network ".$this->nick);
-  $this->sendnumeric($this->server,2,"Your host is ".$this->server->name);
-  $this->sendnumeric($this->server,3,"This server was started awhile ago");
+  $this->sendnumeric($this->server,2,"Your host is ".$this->server->name.", running version ".$this->server->version);
+  $this->sendnumeric($this->server,3,"This server was created ".scalar gmtime($this->server->creation));
   $this->sendnumeric($this->server,4,($this->server->name,$this->server->version,"dioswkg","biklmnopstv"),undef);
   # Send them LUSERS output
   $this->handle_lusers("LUSERS");
@@ -1167,7 +1167,16 @@ sub sendnumeric {
     $numeric = ("0" x (3 - length($numeric))).$numeric;
   }
 
-  $this->senddata(":".$fromstr." $numeric ".$this->nick." ".join(' ',@arguments).(defined($msg)?":$msg":"")."\r\n");
+  if($#arguments>0) {
+    push(@arguments,'');
+  }
+
+  if(defined($msg)) {
+    $msg=":".$msg;
+    $this->senddata(":".join(' ',$fromstr,$numeric,$this->nick,@arguments,$msg)."\r\n");
+  } else {
+    $this->senddata(":".join(' ',$fromstr,$numeric,$this->nick,@arguments)."\r\n");
+  }
 }
 
 # Does the actual queueing of a bit of data
