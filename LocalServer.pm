@@ -2,7 +2,7 @@
 # 
 # LocalServer.pm
 # Created: Sat Sep 26 18:11:12 1998 by jay.kominek@colorado.edu
-# Revised: Tue Dec 12 19:37:32 2000 by jay.kominek@colorado.edu
+# Revised: Fri Mar  9 12:47:25 2001 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -61,7 +61,7 @@ sub loadconffile {
   # Clear everything out so that if things have been removed from
   # the configuration file, they actually disappear.
   $this->{'opers'} = { };
-  $this->{'klines'} = { };
+  $this->{'klines'} = [ ];
   $this->{'connections'} = { };
   $this->{'nets'} = { };
   $this->{'motd'} = [undef];
@@ -125,15 +125,16 @@ sub loadconffile {
       next CONFPARSE;
     }
     # Kill Line
-    if($line =~ /^K:([^:]+):([^:]+):([^.]+)$/) {
-      my($mask,$reason,$usermask) = ($1,$2,$3);
+    if($line =~ /^(I?)K:([^:]+):([^:]+):([^.]+)$/) {
+      my($inverse,$mask,$reason,$usermask) = ($1,$2,$3,$4);
       $mask =~ s/\./\\\./g;
       $mask =~ s/\?/\./g;
       $mask =~ s/\*/\.\*/g;
       $usermask =~ s/\./\\\./g;
       $usermask =~ s/\?/\./g;
       $usermask =~ s/\*/\.\*/g;
-      $this->{'klines'}->{$mask} = [$usermask,$mask,$reason];
+      $inverse = ($inverse eq 'I');
+      push @{ $this->{'klines'} }, [$inverse,$usermask,$mask,$reason];
       next CONFPARSE;
     }
     # Connection Line
