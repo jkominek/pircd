@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Mon Oct  5 15:19:56 1998 by jay.kominek@colorado.edu
+# Revised: Wed Nov 25 22:57:01 1998 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # This program is free software; you can redistribute it and/or modify it
@@ -177,7 +177,7 @@ sub handle_pong {
   # to anything.
 
   #  my $this = shift;
-  #  my($command,$response) = split(/ /,shift,2);
+  #  my($command,$response) = split(/\s+/,shift,2);
 
   # I suppose we could do something with the response, but
   # what would that be?
@@ -187,7 +187,7 @@ sub handle_pong {
 # Where target is either a user or a channel
 sub handle_privmsg {
   my $this = shift;
-  my($command, $targetstr, $msg) = split(/ /,shift,3);
+  my($command, $targetstr, $msg) = split(/\s+/,shift,3);
   my @targets = split(/,/,$targetstr);
   $msg =~ s/^://;
   my $target;
@@ -213,7 +213,6 @@ sub handle_privmsg {
 	  }
 	}
       }
-
     } elsif($this->ismode('o') && ($target =~ /^\#/)) {
       my $matchingusers = $target;
       $matchingusers =~ s/^\$//;
@@ -252,7 +251,7 @@ sub handle_privmsg {
 # Where target is either a user or a channel
 sub handle_notice {
   my $this = shift;
-  my($command,$targetstr,$msg) = split(/ /,shift,3);
+  my($command,$targetstr,$msg) = split(/\s+/,shift,3);
 
   my @targets = split(/,/,$targetstr);
   $msg =~ s/^://;
@@ -324,7 +323,7 @@ sub handle_notice {
 # Or s/JOIN/CHANNEL/ those.
 sub handle_join {
   my $this = shift;
-  my($command, $channelstr, $keystr) = split(/ /,shift,3);
+  my($command, $channelstr, $keystr) = split(/\s+/,shift,3);
   my @channels = split(/,/,$channelstr);
   $keystr      =~ s/^://;
   my @keys     = split(/,/,$keystr);
@@ -353,7 +352,7 @@ sub handle_join {
 # PART #channel1,#channel2,..,#channeln-1,#channeln
 sub handle_part {
   my $this = shift;
-  my($command, $channelstr) = split(/ /,shift,2);
+  my($command, $channelstr) = split(/\s+/,shift,2);
   $channelstr =~ s/^://;
   my @channels = split(/,/,$channelstr);
   my $channel;
@@ -382,7 +381,7 @@ sub handle_part {
 # TOPIC #channel :useful information about the channel
 sub handle_topic {
   my $this = shift;
-  my($command,$channel,$topic) = split(/ /,shift,3);
+  my($command,$channel,$topic) = split(/\s+/,shift,3);
   my @channels = split(/,/,$channel);
   $topic =~ s/^://;
   my $ret = Utils::lookup($channel);
@@ -603,7 +602,7 @@ sub handle_list {
 # NAMES
 sub handle_names {
   my $this = shift;
-  my($command,$channels) = split(/ /,shift,2);
+  my($command,$channels) = split(/\s+/,shift,2);
 
   my @channels;
   if(defined($channels)) {
@@ -638,7 +637,7 @@ sub handle_version {
 # TIME
 sub handle_time {
   my $this = shift;
-  my($command,$server) = split(/ /,shift,2);
+  my($command,$server) = split(/\s+/,shift,2);
   if(!defined($server)) {
     my $time = time();
     $this->sendnumeric($this->server,391,($this->server->name,$time,0),scalar gmtime($time));
@@ -715,7 +714,7 @@ sub handle_trace {
 # MODE
 sub handle_mode {
   my $this = shift;
-  my($command,$target,$modestr,@arguments) = split(/ /,shift);
+  my($command,$target,$modestr,@arguments) = split(/\s+/,shift);
   $modestr =~ s/^://;
   my @modebytes = split(//,$modestr);
   my(@accomplishedset, @accomplishedunset);
@@ -785,7 +784,7 @@ sub handle_mode {
 # OPER nick :password
 sub handle_oper {
   my $this = shift;
-  my($command,$nick,$password) = split(/ /,shift,3);
+  my($command,$nick,$password) = split(/\s+/,shift,3);
   $password =~ s/^://;
 
   if($this->ismode('o')) {
@@ -818,7 +817,7 @@ sub handle_oper {
 # AWAY :my excuse
 sub handle_away {
   my $this = shift;
-  my($command,$msg) = split(/ /,shift,2);
+  my($command,$msg) = split(/\s+/,shift,2);
   $msg =~ s/^://;
   if($msg) {
     $this->{awaymsg} = $msg;
@@ -848,7 +847,7 @@ sub handle_connect {
 # KILL nick :excuse
 sub handle_kill {
   my $this = shift;
-  my($command,$target,$excuse) = split(/ /,shift,3);
+  my($command,$target,$excuse) = split(/\s+/,shift,3);
   $excuse =~ s/^://;
   # Look the user up, call $user->kill($this,$excuse)
   # Of course, that requires Users have a kill method.
@@ -858,7 +857,7 @@ sub handle_kill {
 # WALLOPS :wibble
 sub handle_wallops {
   my $this = shift;
-  my($command,$message) = split(/ /,shift,2);
+  my($command,$message) = split(/\s+/,shift,2);
 
   if(!$this->ismode('o')) {
     $this->sendnumeric($this->server,481,"Permission Denied- You're not an IRC operator");
@@ -892,7 +891,7 @@ sub handle_rehash {
 # QUIT :my excuse
 sub handle_quit {
   my $this = shift;
-  my($command,$msg) = split(/ /,shift,2);
+  my($command,$msg) = split(/\s+/,shift,2);
   $msg =~ s/^://;
   $this->quit($msg);
 }
@@ -1039,7 +1038,7 @@ sub privmsg {
     if(isa($from,"User")) {
       $this->senddata(":".$from->nick."!".$from->username."\@".$from->host." PRIVMSG ".$this->nick." :$msg\r\n");
     } elsif(isa($from,"Server")) {
-      $this->senddata(":".$from->name." PRIVMSG $this->nick :$msg\r\n");
+      $this->senddata(":".$from->name." PRIVMSG ".$this->nick." :$msg\r\n");
     }
   } else {
     # They're not a local user, so we'll have to
@@ -1058,7 +1057,7 @@ sub notice {
     if(isa($from,"User")) {
       $this->senddata(":".$from->nick."!".$from->username."\@".$from->host." NOTICE ".$this->nick." :$msg\r\n");
     } elsif(isa($from,"Server")) {
-      $this->senddata(":".$from->name." NOTICE $this->nick :$msg\r\n");
+      $this->senddata(":".$from->name." NOTICE ".$this->nick." :$msg\r\n");
     }
   } else {
     # They're not a local user, so we'll have to
