@@ -346,17 +346,25 @@ sub mode {
 	    }
 	  } elsif($_ eq "l") {
 	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($this->setmode($user, "l"))) {
+	    if(defined($arg)) {
+	      $this->setmode($user,'l');
 	      $this->{'limit'} = $arg;
 	      push(@accomplishedset,$_);
 	      push(@accomplishedargs,$arg);
 	    }
 	  } elsif($_ eq "k") {
 	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($this->setmode($user, "k"))) {
-	      $this->{'key'} = $arg;
-	      push(@accomplishedset,$_);
-	      push(@accomplishedargs,$arg);
+	    if(defined($arg)) {
+	      if($this->ismode('k')) {
+		$user->senddata(":".$user->server->{name}." 467 ".$user->nick.
+				" ".$this->{name}.
+				" :Channel key already set\r\n");
+	      } else {
+		$this->setmode($user,'k');
+		$this->{'key'} = $arg;
+		push(@accomplishedset,$_);
+		push(@accomplishedargs,$arg);
+	      }
 	    }
 	  } elsif($this->setmode($user,$_)) {
 	    push(@accomplishedset,$_);
