@@ -2,7 +2,7 @@
 # 
 # pircd
 # Created: Mon Sep 14 12:55:01 1998 by jay.kominek@colorado.edu
-# Revised: Sun Feb 21 13:34:26 1999 by jay.kominek@colorado.edu
+# Revised: Thu Apr 22 11:16:31 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -75,7 +75,7 @@ if(!defined($server)) {
 }
 
 my $tmp = LocalServer->new($conf);
-Utils::servers()->{$tmp->lcname()} = $Utils::thisserver = $tmp;
+Utils::servers()->{$tmp->name()} = $Utils::thisserver = $tmp;
 
 my $select    = IO::Select->new($server);
 # While we key these on the $client's socket object, we
@@ -181,14 +181,14 @@ for(;;) {
       my $thing = $unfinished{$client}->finalize();
       if($thing->isa("User")) {
 	# They've handed us a User object.
-	my $nick = $thing->lcnick();
+	my $nick = $thing->nick();
 	Utils::users()->{$nick} = $thing;
-	$connections{$client} = $thing;
+	$connections{$client}   = $thing;
       } elsif($thing->isa("Server")) {
 	# They've handed us a Server object.
-	my $name = $thing->lcname();
+	my $name = $thing->name();
 	Utils::servers()->{$name} = $thing;
-	$connections{$client}   = $thing;
+	$connections{$client}     = $thing;
       } else {
 	# Wow. Martian finalization. Crazy Stuff.
       }

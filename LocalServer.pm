@@ -2,7 +2,7 @@
 # 
 # LocalServer.pm
 # Created: Sat Sep 26 18:11:12 1998 by jay.kominek@colorado.edu
-# Revised: Fri Feb 12 12:19:08 1999 by jay.kominek@colorado.edu
+# Revised: Thu Apr 22 11:18:25 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -22,6 +22,8 @@ use vars qw(@ISA);
 use UNIVERSAL qw(isa);
 @ISA=qw{Server};
 
+use Tie::IRCUniqueHash;
+
 ###################
 # CLASS CONSTRUCTOR
 ###################
@@ -35,6 +37,13 @@ sub new {
 
   $this->{conffile} = (shift||"server.conf");
   &loadconffile($this);
+
+  tie my %opertmp,  'Tie::IRCUniqueHash';
+  $this->{'opers'}    = \%opertmp;
+  tie my %usertmp,  'Tie::IRCUniqueHash';
+  $this->{'users'}    = \%usertmp;
+  tie my %childtmp, 'Tie::IRCUniqueHash';
+  $this->{'children'} = \%childtmp;
 
   bless($this, $class);
   return $this;
@@ -194,7 +203,7 @@ sub getopers {
 sub adduser {
   my $this = shift;
   my $user = shift;
-  $this->{'users'}->{$user->lcnick()} = $user;
+  $this->{'users'}->{$user->nick()} = $user;
 }
 
 sub removeuser {
@@ -203,9 +212,9 @@ sub removeuser {
 
   my $nick;
   if(ref($user)) {
-    $nick = $user->lcnick();
+    $nick = $user->nick();
   } else {
-    $nick = Utils::irclc($user);
+    $nick = $user;
   }
 
   delete($this->{'users'}->{$nick});
@@ -214,7 +223,7 @@ sub removeuser {
 sub addchildserver {
   my $this  = shift;
   my $child = shift;
-  $this->{'children'}->{$child->lcname()} = $child;
+  $this->{'children'}->{$child->name()} = $child;
 }
 
 sub removechildserver {
@@ -223,7 +232,7 @@ sub removechildserver {
 
   my $name;
   if(ref($child)) {
-    $name = $child->lcname();
+    $name = $child->name();
   } else {
     $name = $child;
   }
