@@ -37,15 +37,14 @@ $| = 1;
 #  use the iterative value as the $client object without
 #  things breaking.
 my %connections = ();
-my %ready       = ();
 my %unfinished  = ();
 tie %connections, 'Tie::RefHash';
-tie %ready,       'Tie::RefHash';
 tie %unfinished,  'Tie::RefHash';
 my $port        = 6667;
 my $backlog     = 10;
 my $daemon      = 0;
 my $conf        = "server.conf";
+my $PINGTIME=90; # number of idle seconds before a ping check
 
 # Parse the command line
 use Getopt::Std;
@@ -60,17 +59,17 @@ undef %opts;
 
 if($daemon) {
   exit if fork;
+  $Utils::params{logfile}='pircd.log';
   POSIX::setsid() || Utils::syslog('notice',"Cannot start a new session: $!");
 }
 
-# Port 6667, with a max of 10 unrecognized connections
-#  waiting. That might need to be tunable so that I higher
-#  load server doesn't reject connections.
 my $server = IO::Socket::INET->new(LocalPort => $port,
 				   Listen    => $backlog,
-				   Reuse     => 1);
+				   Reuse     => 1,
+				   Proto     => 'tcp');
 if(!defined($server)) {
-  Utils::syslog('err',"Failed to open listening socket on port 6667: %m");
+  # note that 5.004 Socket.pm's _error() spooges on $!, so we use $@ here
+  Utils::syslog('err',"Failed to open listening socket on port $port: $@");
   exit(-1);
 }
 
@@ -83,6 +82,12 @@ my $select    = IO::Select->new($server);
 #  have to be RefHashes
 my %inbuffer  = ( );
 my %outbuffer = ( );
+
+my($theline, $therest);
+
+if(!$daemon) {
+    print "Ripe and ready to the eye...\n";
+}
 
 for(;;) {
   my $client;
@@ -115,59 +120,38 @@ for(;;) {
 	  # Bleh. Too lazy to figure out what to
 	  # do about the death of unpromoted Connections.
 	  # (actually, we probably don't have to do anything)
+	    die "would infinite loop";
 	}
       }
       $inbuffer{$client} .= $data;
-      # We only want to pass whole lines to the input handling code.
-      while($inbuffer{$client} =~ s/(.*\n)$//) {
-	unshift(@{$ready{$client}},$1);
+      # if we got a whole line(s), process it
+      while(($theline, $therest)=$inbuffer{$client}=~/([^\n]*)\n(.*)/s) {
+	  $inbuffer{$client}=$therest;
+	  # if the client used CRLF, strip the "\r"
+	  $theline=~s/\r$//;
+	  die("maybe not.") if(!defined($connections{$client}));
+	  $connections{$client}->handle($theline);
       }
     } else {
       # We've got activity on a martian socket!
     }
   }
 
-  # Go through each of the sockets that have full lines
-  #  waiting for them..
-  foreach $client (keys %ready) {
-    my $line;
-    # ..and for every line they've got waiting..
-    foreach $line (@{$ready{$client}}) {
-      my $fu;
-      chomp($fu = $line);
-      # ..pass it on to the handler for that connection.
-      if(defined($connections{$client})) { # it should always be defined
-	$connections{$client}->handle($line);
-      } else {
-	&finishclient($client);
-      }
-    }
-    # and then get rid of the lines.
-    delete($ready{$client});
-  }
-
   # This stuff handles testing the connectivity of all the
   #  connections.
-  # Here in the first section, we look for anyone who hasn't
-  #  been active in the past 90 seconds, and ping at them.
   foreach $client (keys %connections) {
-    my $idle = $time - $connections{$client}->last_active();
-    if(($idle>90)&&(!$connections{$client}->ping_in_air())) {
-      $connections{$client}->ping();
-    }
-  }
-
-  # And now, if they havn't managed to respond in the past
-  #  90 seconds, cut the bums off.
-  foreach $client (keys %connections) {
-    my $idle = $time - $connections{$client}->last_active();
-    if(($idle>180)&&($connections{$client}->ping_in_air())) {
-      if($connections{$client}->isa("Server")) {
-	$connections{$client}->squit("Ping timeout");
-      } else {
-	$connections{$client}->quit("Ping timeout");
+      my $idle = $time - $connections{$client}->last_active();
+      if(($idle>90)&&(!$connections{$client}->ping_in_air())) {
+	  # send anyone who's been idle too long a ping
+	  $connections{$client}->ping();
+      } elsif(($idle>2*$PINGTIME)&&($connections{$client}->ping_in_air())) {
+	  # if they don't respond, send them to hell
+	  if($connections{$client}->isa("Server")) {
+	      $connections{$client}->squit("Ping timeout");
+	  } else {
+	      $connections{$client}->quit("Ping timeout");
+	  }
       }
-    }
   }
 
   # This checks for Connection objects that have finished
@@ -252,7 +236,7 @@ sub addinitiatedclient {
 					  \%outbuffer,
 					  $Utils::thisserver);
   $unfinished{$client}  = $connections{$client};
-  $connections{$client}->setinitiated();
+  $connections{$client}->{'initiated'}=1;
   $connections{$client}->senddata($send);
 }
 
@@ -260,7 +244,6 @@ sub finishclient {
   my $client = shift;
   my $thing  = $connections{$client};
   # Kill all the buffers, etc for the client.
-  delete($ready{$client});
   delete($outbuffer{$client});
   delete($inbuffer{$client});
   if($connections{$client} != undef && 
