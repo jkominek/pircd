@@ -84,8 +84,8 @@ sub isvalidchannelmode {
   my $mode = shift;
   if(grep {/$mode/} ("b","i","k",
 		     "l","m","n",
-		     "o","p","s",
-		     "t","v")) {
+		     "o","s","t",
+		     "v")) {
     return 1;
   } else {
     return 0;
