@@ -877,10 +877,26 @@ sub handle_connect {
 sub handle_kill {
   my $this = shift;
   my($command,$target,$excuse) = split/\s+/,shift,3;
+  my $user;
+
   $excuse =~ s/^://;
-  # Look the user up, call $user->kill($this,$excuse)
-  # Of course, that requires Users have a kill method.
-  # So you'll have to write that, too.
+  my $fchar = substr($target, 0, 1);
+  if(!$this->ismode('o') || $fchar eq "*") {
+    return;
+  }
+
+  if(!$excuse) {
+    $excuse = "Default Kill Message";
+  }
+
+  my $fromnick = $this->nick();
+  my $fromhost = $this->{'host'};
+  $user = Utils::lookupuser($target);
+  if(!defined($user)) {
+    return;
+  }
+
+  $user->kill($excuse, $fromnick, $fromhost);
 }
 
 # WALLOPS :wibble
@@ -1121,6 +1137,42 @@ sub ping {
     # If they're not a local user, its not our problem
     $this->{ping_waiting} = 1;
     $this->senddata("PING :".$this->{'server'}->{name}."\r\n");
+  }
+}
+
+# This happens when a person is killed.
+sub kill {
+  my ($this,$excuse,$fromnick,$fromaddr)=@_;
+  my $channame;
+  my @foo;
+
+  my $targetaddr = $this->{'host'};
+  my $outbuffer = "$fromnick\!~$fromaddr KILL " . $this->nick() . " :$targetaddr\!$fromnick \($excuse\)\n";
+  $this->{'socket'}->send($outbuffer, 0);
+
+  my $outbuffer = "ERROR :Closing Link: $this->{'nick'}\['$this->{'host'}\] by " . $fromnick . "\(Local kill by " . $fromnick . "\(" . $excuse . "\)\)\n";
+  $this->{'socket'}->send($outbuffer, 0);
+
+  # Remove them from all appropriate structures, etc
+  # and announce it to local channels
+  foreach $channame (keys(%{$this->{'hasinvitation'}})) {
+    my $channel = Utils::lookupchannel($channame);
+    if(ref($channel) && isa($channel,"Channel")) {
+      delete($channel->{'hasinvitation'}->{$this});
+    }
+  }
+  # Notify all the channels they're in of their disconnect
+  foreach $channame (keys(%{$this->{'channels'}})) {
+    push @foo, $this->{channels}->{$channame}->notifyofquit($this);
+  }
+  multisend(":$$this{nick}!$$this{user}\@$$this{host} QUIT> :Local kill by operator \($excuse\)",@foo);
+  # Tell connected servers that they're gone
+  $this->server->removeuser($this);
+  # Remove us from the User hash
+  delete(Utils::users()->{$this->nick()});
+  # Disconnect them
+  if($this->islocal()) {
+    &main::finishclient($this->{'socket'});
   }
 }
 
