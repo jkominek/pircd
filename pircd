@@ -158,6 +158,7 @@ for(;;) {
       $inbuffer{$client} .= $data;
     } else {
       # We've got activity on a martian socket!
+      die("Something strange occurred.  Email the developers.");
     }
 
     # if we got a whole line(s), process it
@@ -226,6 +227,7 @@ for(;;) {
 	$connections{$client}     = $thing;
       } else {
 	# Wow. Martian finalization. Crazy Stuff.
+        die("Martian finalization.  Email the developers.")
       }
       delete($unfinished{$client});
     }
