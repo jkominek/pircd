@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Wed Nov 25 22:57:01 1998 by jay.kominek@colorado.edu
+# Revised: Mon Nov 30 17:31:03 1998 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # This program is free software; you can redistribute it and/or modify it
@@ -136,30 +136,34 @@ sub setupaslocal {
 # MAIN INPUT HANDLER
 sub handle {
   my $this = shift;
-  my $line = shift;
+  my $rawline = shift;
 
-  $line =~ s/\s+$//;
+  my $line;
+  foreach $line (split(/\x00/,$rawline)) {
 
-  $this->{last_active} = time();
-  delete($this->{ping_waiting});
+    $line =~ s/\s+$//;
 
-  # The command that we key on is the first string of alphabetic
-  #  characters (and _, but we'll ignore that)
-  $line =~ /^(\w+)/;
-  # Most clients send the stuff in upper case, so we use uppercase
-  #  strings for the hash keys, hopeing that uc'ing something that
-  #  is already uppercase goes faster.
-  my $command = uc($1);
+    $this->{last_active} = time();
+    delete($this->{ping_waiting});
 
-  # To handle incoming stuff from users, we use a hash of references to
-  #  subroutines which is keyed on the name of the commands that calls
-  #  that subroutine.
-  if($this->{commands}->{$command}) {
-    &{$this->{commands}->{$command}}($this,$line);
-  } else {
-    if($line =~ /[\w\d\s]/) {
-      print "Received unknown command string \"$line\" from ".$this->nick."\n";
-      $this->sendnumeric($this->server,421,($command),"Unknown command");
+    # The command that we key on is the first string of alphabetic
+    #  characters (and _, but we'll ignore that)
+    $line =~ /^(\w+)/;
+    # Most clients send the stuff in upper case, so we use uppercase
+    #  strings for the hash keys, hopeing that uc'ing something that
+    #  is already uppercase goes faster.
+    my $command = uc($1);
+
+    # To handle incoming stuff from users, we use a hash of references to
+    #  subroutines which is keyed on the name of the commands that calls
+    #  that subroutine.
+    if(ref($this->{commands}->{$command})) {
+      &{$this->{commands}->{$command}}($this,$line);
+    } else {
+      if($line =~ /[\w\d\s]/) {
+	print "Received unknown command string \"$line\" from ".$this->nick."\n";
+	$this->sendnumeric($this->server,421,($command),"Unknown command");
+      }
     }
   }
 }
@@ -180,7 +184,8 @@ sub handle_pong {
   #  my($command,$response) = split(/\s+/,shift,2);
 
   # I suppose we could do something with the response, but
-  # what would that be?
+  # what would that be? Conduct a survey as to how different
+  # clients respond?
 }
 
 # PRIVMSG target :message
@@ -440,6 +445,21 @@ sub handle_kick {
 # INVITE
 sub handle_invite {
   my $this = shift;
+  my($command,$nick,$channel) = split(/\s+/,shift);
+  my($channel,$waste) = split(/,/,$channel);
+  
+  my $tmpchan = Utils::lookupchannel($channel);
+  my $user    = Utils::lookupuser($nick);
+  if($user && isa($user,"User")) {
+    if($tmpchan && isa($tmpchan,"Channel")) {
+      $tmpchan->invite($this,$user);
+    } else {
+      # it is valid to invite people to channels that do not exist
+      $user->invite($this,$channel);
+    }
+  } else {
+    $this->sendnumeric($this->server,401,$this->name,$nick,"No such nick");
+  }
 }
 
 #####################################################################
@@ -1066,6 +1086,22 @@ sub notice {
   }
 }
 
+sub invite {
+  my($this,$from,$channel) = @_;
+  if($this->{socket}) {
+    # local user
+    $this->senddata(":".$from->nick."!".$from->username."\@",$from->host." INVITE ".$this->nick." :$channel\r\n");
+  } else {
+    # dispatch to the relevent server
+
+  }
+}
+
+sub addinvited {
+  my($this,$channel) = @_;
+  $this->{hasinvitation}->{$channel->lcname()} = 1;
+}
+
 # Sends the person a ping to test connectivity.
 sub ping {
   my $this = shift;
@@ -1080,9 +1116,16 @@ sub ping {
 sub quit {
   my $this = shift;
   my $msg  = shift;
+  my $channame;
   # Remove them from all appropriate structures, etc
    # This is mainly handled when its found that their
    # socket is no longer valid.
+  foreach $channame (keys(%{$this->{hasinvitation}})) {
+    my $channel = Utils::lookupchannel($channame);
+    if(ref($channel) && isa($channel,"Channel")) {
+      delete($channel->{hasinvitation}->{$this});
+    }
+  }
   # Notify all the channels they're in of their disconnect
   foreach(keys(%{$this->{channels}})) {
     $this->{channels}->{$_}->notifyofquit($this,$msg);
@@ -1124,14 +1167,13 @@ sub sendnumeric {
     $numeric = ("0" x (3 - length($numeric))).$numeric;
   }
 
-  $this->senddata(":".$fromstr." $numeric ".$this->nick." ".join(' ',@arguments).(defined($msg)?" :$msg":"")."\r\n");
+  $this->senddata(":".$fromstr." $numeric ".$this->nick." ".join(' ',@arguments).(defined($msg)?":$msg":"")."\r\n");
 }
 
 # Does the actual queueing of a bit of data
 sub senddata {
   my $this = shift;
 
-  print STDOUT join('',@_);
   $this->{outbuffer}->{$this->{socket}} .= join('',@_);
 }
 

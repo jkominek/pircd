@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Fri Oct  2 11:33:16 1998 by jay.kominek@colorado.edu
+# Revised: Mon Nov 30 17:43:06 1998 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -429,6 +429,7 @@ sub join {
   my $this = shift;
   my $user = shift;
   my @keys = @_;
+  my $hasinvitation = 0;
 
   my($fu,$bar) = ($user->nick,$this->name);
 
@@ -449,19 +450,35 @@ sub join {
     return;
   }
 
-  # Test to see if the user knows the channel key
-  if($this->ismode('k')) {
-    unless(grep {/^$this->{key}$/} @keys) {
-      $user->senddata(":".$user->server->name." 475 ".$user->nick." ".$this->name." :Cannot join channel (+k)\r\n");
-      return;
-    }
+  if(defined($this->{hasinvitation}->{$user})) {
+    $hasinvitation = 1;
+    delete($this->{hasinvitation}->{$user});
   }
 
-  # Test to see if the channel is over the current population limit.
-  if(($this->ismode('l')) &&
-     ((1+scalar keys(%{$this->{users}}))>$this->{limit})) {
-    $user->senddata(":".$user->server->name." 471 ".$user->nick." ".$this->name." :Cannot join channel (+l)\r\n");
+  # Test to see if the user needs and invitation
+  if($this->ismode('i') && (!$hasinvitation)) {
+    $user->sendnumeric($user->server,473,$user->nick,$this->name,"Channel join channel (+i)");
     return;
+  }
+
+  # If the user is invited, then they can bypass the key, limit, and bans
+  if(!$hasinvitation) {
+    # Test to see if the user knows the channel key
+    if($this->ismode('k')) {
+      unless(grep {/^$this->{key}$/} @keys) {
+	$user->senddata(":".$user->server->name." 475 ".$user->nick." ".$this->name." :Cannot join channel (+k)\r\n");
+	return;
+      }
+    }
+  
+    # Test to see if the channel is over the current population limit.
+    if(($this->ismode('l')) &&
+       ((1+scalar keys(%{$this->{users}}))>$this->{limit})) {
+      $user->senddata(":".$user->server->name." 471 ".$user->nick." ".$this->name." :Cannot join channel (+l)\r\n");
+      return;
+    }
+
+    # Test for bans, here
   }
 
   $user->{channels}->{$this->lcname()} = $this;
@@ -478,7 +495,7 @@ sub join {
     $this->topic($user);
   }
   $this->names($user);
-  $user->senddata(":".$user->server->name." 366 ".$user->nick." ".$this->name." :End of /NAMES list.\r\n");
+  $user->sendnumeric($user->server,366,$user->nick,$this->name,"End of /NAMES list.");
   # Now tell all the servers..
 }
 
@@ -533,7 +550,7 @@ sub kick {
   if($this->isop($user)) {
     my $sap = Utils::lookup($target);
     if((!defined($sap)) || (!$sap->isa("User"))) {
-      $user->senddata(":".$user->server->name." 401 ".$user->nick." ".$target." :No such nick\r\n");
+      $user->sendnumeric($user->server,401,$target,"No such nick");
       return;
     }
     delete($sap->{channels}->{$this->lcname()});
@@ -552,7 +569,22 @@ sub kick {
       delete(Utils::channels()->{$this->lcname()});
     }
   } else {
-    $user->senddata(":".$user->server->name." 482 ".$user->nick." ".$this->name." :You're not a channel operator\r\n");
+    $user->sendnumeric($user->server,482,$this->name,"You are not a channel operator");
+  }
+}
+
+sub invite {
+  my $this   = shift;
+  my $from   = shift;
+  my $target = shift;
+
+  if($this->isop($from)) {
+    
+    $this->{hasinvitation}->{$target} = 1;
+    $target->addinvited($this);
+    $target->invite($from,$this->name());
+  } else {
+    $target->sendnumeric($from->server,482,$this->name(),"You are not a channel operator");
   }
 }
 
