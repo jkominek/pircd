@@ -2,7 +2,7 @@
 # 
 # LocalServer.pm
 # Created: Sat Sep 26 18:11:12 1998 by jay.kominek@colorado.edu
-# Revised: Sun Jun 27 23:39:58 1999 by jay.kominek@colorado.edu
+# Revised: Sun Feb 13 13:57:57 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -46,6 +46,8 @@ sub new {
   $this->{'users'}    = \%usertmp;
   tie %childtmp, 'Tie::IRCUniqueHash';
   $this->{'children'} = \%childtmp;
+
+  $this->{'version'} = $Utils::VERSION;
 
   &loadconffile($this);
 
