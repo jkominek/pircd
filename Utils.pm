@@ -52,7 +52,7 @@ sub lookup {
     }
   } elsif($name =~ /\./) {
     # If it has a period in it, then it has to be a server. Assuming
-    # we did proper checking on new nicks. Which we don't.
+    # we did proper checking on new nicks. Which we do. (IIRC)
     if($servers{$name}) {
       return $servers{$name};
     } else {

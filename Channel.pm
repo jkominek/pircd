@@ -141,10 +141,9 @@ sub unsetmode {
 
 # These functions manipulate or view the ban list for $this channel
 #  bans are stored as a hash, keyed on the mask. The value for that
-#  hash{key} is a an array, the first item of which contains the name
-#  of the person who set the ban, and the second item containing the
-#  time the ban was set.
-# XXX since when can a hash value be an array?
+#  hash{key} is a reference to an array, the first item of which
+#  contains the name of the person who set the ban, and the second item
+#  containing the time the ban was set.
 # setban takes a mask, and if it is not already present, adds it to
 #  the list of bans on the channel.
 sub setban {
@@ -153,10 +152,10 @@ sub setban {
   my $mask = shift;
 
   if(!defined($this->{'bans'}->{$mask})) {
-    $this->{'bans'}->{$mask} = [$user->server->name,time()];
+    $this->{'bans'}->{$mask} = [$user->{'nick'},time()];
     return $mask;
   } else {
-    return 0;
+    return undef;
   }
 }
 
@@ -170,15 +169,15 @@ sub unsetban {
     delete($this->{bans}->{$mask});
     return $mask;
   } else {
-    return 0;
+    return undef;
   }
 }
 
 # Takes a User object and returns true if that user
 # is an op on this channel.
 sub isop {
-  my $this = shift;
-  my $user = shift;
+  my ($this,$user) = @_;
+
   if(defined($this->{ops}->{$user->nick()})) {
     return 1;
   } else {
@@ -187,54 +186,52 @@ sub isop {
 }
 
 sub setop {
-  my $this   = shift;
-  my $user   = shift;
-  my $target = shift;
+  my ($this,$user,$target) = @_;
   my $ret    = Utils::lookupuser($target,1);
+
   if(!(ref($ret) && isa($ret,"User"))) {
     $user->sendnumeric($user->server,401,$target,"No such nick");
-    return 0;
+    return undef;
   }
   if(!defined($this->{'users'}->{$ret->nick()})) {
     $user->sendnumeric($user->server,441,$target,$this->{name},
 		       "They aren't on the channel");
-    return 0;
+    return undef;
   }
   if(!defined($this->{ops}->{$ret->nick()})) {
     $this->{ops}->{$ret->nick()} = $user;
     return $ret->nick;
   } else {
-    return 0;
+    return undef;
   }
 }
 
 sub unsetop {
-  my $this   = shift;
-  my $user   = shift;
-  my $target = shift;
+  my ($this,$user,$target) = @_;
   my $ret    = Utils::lookupuser($target,1);
+
   if(!(ref($ret) && isa($ret,"User"))) {
     $user->sendnumeric($user->server,401,$target,"No such nick");
-    return 0;
+    return undef;
   }
   if(!defined($this->{'users'}->{$ret->nick()})) {
     $user->sendnumeric($user->server,441,$target,$this->{name},
 		       "They aren't on the channel");
-    return 0;
+    return undef;
   }
   if(defined($this->{ops}->{$ret->nick()})) {
     delete($this->{ops}->{$ret->nick()});
     return $ret->nick;
   } else {
-    return 0;
+    return undef;
   }
 }
 
 # Takes a User object and tells you if it has a voice on
 # this channel.
 sub hasvoice {
-  my $this = shift;
-  my $user = shift;
+  my ($this,$user) = @_;
+
   if(defined($this->{voice}->{$user->nick()})) {
     return 1;
   } else {
@@ -243,24 +240,23 @@ sub hasvoice {
 }
 
 sub setvoice {
-  my $this   = shift;
-  my $user   = shift;
-  my $target = shift;
+  my ($this,$user,$target) = @_;
   my $ret    = Utils::lookupuser($target,1);
+
   if(!(ref($ret) && isa($ret,"User"))) {
     $user->sendnumeric($user->server,401,$target,"No such nick");
-    return 0;
+    return undef;
   }
   if(!defined($this->{'users'}->{$ret->nick()})) {
     $user->sendnumeric($user->server,441,$target,$this->{name},
 		       "They aren't on the channel");
-    return 0;
+    return undef;
   }
   if(!defined($this->{'voice'}->{$ret->nick()})) {
     $this->{voice}->{$ret->nick()} = $user;
     return $ret->nick;
   } else {
-    return 0;
+    return undef;
   }
 }
 
@@ -271,18 +267,18 @@ sub unsetvoice {
   my $ret    = Utils::lookupuser($target,1);
   if(!(ref($ret) && isa($ret,"User"))) {
     $user->sendnumeric($user->server,401,$target,"No such nick");
-    return 0;
+    return undef;
   }
   if(!defined($this->{'users'}->{$ret->nick()})) {
     $user->sendnumeric($user->server,441,$target,$this->{name},
 		       "They aren't on the channel");
-    return 0;
+    return undef;
   }
   if(defined($this->{voice}->{$ret->nick()})) {
     delete($this->{voice}->{$ret->nick()});
     return $ret->nick;
   } else {
-    return 0;
+    return undef;
   }
 }
 
@@ -378,7 +374,7 @@ sub mode {
 	  }
 	}
       }
-      if($arg) {
+      if(defined($arg)) {
 	push(@accomplishedset,$_) if($state);
 	push(@accomplishedunset,$_) if(!$state);
 	push(@accomplishedargs,$arg);
@@ -407,9 +403,8 @@ sub mode {
 }
 
 sub topic {
-  my $this = shift;
-  my $user = shift;
-  my $topic = shift;
+  my ($this,$user,$topic) = @_;
+
   if(defined($user) && defined($topic)) {
     unless($this->ismode('t') && (!($this->isop($user) ||
 				    $user->ismode('g')))) {
@@ -508,12 +503,10 @@ sub join {
 
 # Called by (servers) to forcibly add a user, does no checking.
 sub force_join {
-  my $this = shift;
-  my $user = shift;
-  my $server = shift; # the server that is telling us about the
-                      # user connecting has to tell us what it is
-                      # so that when we propogate the join on,
-                      # we don't tell it.
+  # the server that is telling us about the user connecting has to tell
+  # us what it is so that when we propogate the join on, we don't tell
+  # it.
+  my ($this, $user, $server) = @_;
 
   Utils::channels()->{$this->{name}} = $this;
   $this->{'users'}->{$user->nick()} = $user;

@@ -138,7 +138,7 @@ sub server {
 
 sub finalize {
   my $this = shift;
-  if($this->{nick}) {
+  if(defined($this->{nick})) {
     # Since we have a nick stored, that means that we're destined to
     # become a user.
     my $banned = 0;
@@ -173,7 +173,7 @@ sub finalize {
     # have sockets. Pretty clever of them, eh?
 
     return $user;
-  } elsif($this->{servername}) {
+  } elsif(defined($this->{servername})) {
     # We're trying to finalize as an IRC server
     my $server = Server->new($this);
 
