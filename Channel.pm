@@ -86,6 +86,7 @@ sub names {
 
 sub isvalidchannelmode {
   my $mode = shift;
+  if($mode =~ /\W/) { return 0; }
   if(grep {/$mode/} ("b","i","k",
 		     "l","m","n",
 		     "o","s","t",
