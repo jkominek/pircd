@@ -641,9 +641,10 @@ sub checkvalidtosend {
   return 1;
 }
 
-# Sends a 'private message' to everyone on the channel.
-sub privmsg {
+# Sends a private message or notice to everyone on the channel.
+sub privmsgnotice {
   my $this = shift;
+  my $string = shift;
   my $user = shift;
   my $msg  = shift;
 
@@ -653,24 +654,14 @@ sub privmsg {
 
   foreach(keys(%{$this->{'users'}})) {
     if(($this->{'users'}->{$_} ne $user)&&($this->{'users'}->{$_}->islocal())) {
-      $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." PRIVMSG ".$this->{name}." :$msg\r\n");
-    }
-  }
-  # We need something to disseminate the message to other servers
-}
-
-sub notice {
-  my $this = shift;
-  my $user = shift;
-  my $msg  = shift;
-
-  unless($this->checkvalidtosend($user)) {
-    return;
-  }
-
-  foreach(keys(%{$this->{'users'}})) {
-    if(($this->{'users'}->{$_} ne $user)&&($this->{'users'}->{$_}->islocal())) {
-      $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." NOTICE ".$this->{name}." :$msg\r\n");
+      $this->{'users'}->{$_}->senddata(
+				       sprintf(":%s!%s\@%s %s %s :%s",
+					       $user->nick,
+					       $user->username,
+					       $user->host,
+					       $string,
+					       $this->{name},
+					       $msg));
     }
   }
   # We need something to disseminate the message to other servers
