@@ -457,7 +457,9 @@ sub handle_who {
       } elsif($ret->isa("Channel")) {
 	unless(($ret->ismode('s'))&&(!defined($ret->{users}->{$this->nick()}))&&(!$this->ismode('g'))) {
 	  my @users = $ret->users();
-	  foreach my $user (@users) {
+	  foreach my $user (sort
+			  {$ret->{'jointime'}->{$b}<=>$ret->{'jointime'}->{$a}}
+			    @users) {
 	    $this->sendnumeric($this->server,352,
 			       ($ret->{name}, $user->username,$user->host,
 				$user->server->{name},$user->nick,
@@ -549,7 +551,7 @@ sub handle_list {
   my $this = shift;
   $this->sendnumeric($this->server,321,("Channel","Users"),"Name");
   my %channels = %{Utils::channels()};
-  foreach my $channel (keys(%channels)) {
+  foreach my $channel (sort keys(%channels)) {
     unless($channels{$channel}->ismode('s') &&
 	   !defined($channels{$channel}->{users}->{$this->nick()}) &&
 	   !$this->ismode('g')) {
@@ -615,6 +617,7 @@ sub handle_names {
 
     return unless (scalar(@visible) > 0);
 
+    @visible = sort(@visible);
     my @lists;
     my($index,$count) = (0,0);
     foreach my $nick (@visible) {
