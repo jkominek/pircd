@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Sat Jan 29 18:48:41 2000 by jay.kominek@colorado.edu
+# Revised: Tue Feb  8 19:35:08 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -406,7 +406,9 @@ sub handle_whois {
 	      push(@names,$tmpstr);
 	    }
 	  }
-	  $this->sendnumeric($this->server,319,($user->nick),join(' ',@names));
+	  if(scalar @names) {
+	    $this->sendnumeric($this->server,319,$user->nick,join(' ',@names));
+	  }
 	}
 	# *** on IRC via server foo.bar.org ([1.2.3.4] Server Name)
 	$this->sendnumeric($this->server,312,($user->nick,$user->server->{name}),$user->server->description);
