@@ -2,7 +2,7 @@
 # 
 # pircd
 # Created: Mon Sep 14 12:55:01 1998 by jay.kominek@colorado.edu
-# Revised: Wed Nov 22 11:07:48 2000 by jay.kominek@colorado.edu
+# Revised: Tue Dec 12 19:40:07 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -38,9 +38,13 @@ $| = 1;
 #  things breaking.
 my %connections = ();
 my %unfinished  = ();
+my %serversocks = ();
 tie %connections, 'Tie::RefHash';
 tie %unfinished,  'Tie::RefHash';
+tie %serversocks, 'Tie::RefHash';
 my $port        = 6667;
+my $sslport     = 36900;
+my $ssl         = 0;
 my $backlog     = 10;
 my $daemon      = 0;
 my $conf        = "server.conf";
@@ -49,9 +53,11 @@ my $logfile     = "/var/log/pircd";
 # Parse the command line
 use Getopt::Std;
 my %opts;
-getopts('dhp:b:f:l:',\%opts) || &displayhelp;
+getopts('dhp:q:sb:f:l:',\%opts) || &displayhelp;
 if(defined($opts{'p'})) { $port    = $opts{'p'}; }
+if(defined($opts{'p'})) { $sslport = $opts{'p'}; }
 if(defined($opts{'b'})) { $backlog = $opts{'b'}; }
+if(defined($opts{'s'})) { $ssl  = 1; }
 if(defined($opts{'d'})) { $daemon  = 1; }
 if(defined($opts{'f'})) { $conf    = $opts{'f'}; }
 if(defined($opts{'h'})) { &displayhelp; }
@@ -63,22 +69,41 @@ if($daemon) {
   POSIX::setsid() || Utils::syslog('notice',"Cannot start a new session: $!");
 }
 
-my $server = IO::Socket::INET->new(LocalPort => $port,
-				   Listen    => $backlog,
-				   Reuse     => 1,
-				   Proto     => 'tcp');
-if(!defined($server)) {
-  # note that 5.004 Socket.pm's _error() spooges on $!, so we use $@ here
-  Utils::syslog('err',"Failed to open listening socket on port $port: $@");
-  exit(-1);
-}
-
 my $tmp = LocalServer->new($conf);
 Utils::servers()->{$tmp->name()} = $Utils::thisserver = $tmp;
 $Utils::stats{highclients} = 0;
 $Utils::stats{highconnections} = 0;
 
-my $select    = IO::Select->new($server);
+foreach my $tmpport ($port,@{ $tmp->{'ports'} }) {
+    my $server = IO::Socket::INET->new(LocalPort => $tmpport,
+				       Listen    => $backlog,
+				       Reuse     => 1,
+				       Proto     => 'tcp');
+    if(!defined($server)) {
+	# note that 5.004 Socket.pm's _error() spooges on $!, so we use $@ here
+      Utils::syslog('err',"Failed to open listening socket on port $tmpport: $@");
+	exit(-1);
+    }
+    $serversocks{$server} = 1;
+}
+
+if($ssl) {
+    use IO::Socket::SSL;
+
+    foreach my $tmpport ($sslport,@{ $tmp->{'sslports'} }) {
+	my $sslserver = IO::Socket::SSL->new(LocalPort => $tmpport,
+					     Listen    => $backlog,
+					     Reuse     => 1,
+					     Proto     => 'tcp');
+	if(!defined($sslserver)) {
+	  Utils::syslog('err',"Failed to open SSL listening socket on port $tmpport: $@");
+	    exit(-1);
+	}
+	$serversocks{$sslserver} = 1;
+    }
+}
+
+my $select    = IO::Select->new(keys %serversocks);
 # While we key these on the $client's socket object, we
 #  don't have to iterate over them in such as way that they
 #  have to be RefHashes
@@ -99,12 +124,11 @@ for(;;) {
   my $time;
 
   foreach $client ($select->can_read(0.5)) {
-    if($client == $server) {
+    if($serversocks{$client}) {
       # Activity on the listening socket means we have a new
       # client attempting to connect.
-      my($iaddr,$address,$port,$peer_host,$peer_ip);
       # Get ahold of the new socket, assign it to all the whatnot, etc
-      $client = $server->accept;
+      $client = $client->accept;
       $select->add($client);
       &setnonblocking($client);
       $connections{$client} = Connection->new($client, \%outbuffer,
@@ -115,7 +139,7 @@ for(;;) {
       $time = time();
       $timer{$client} = $time if $timer{$client} < $time;
       my($data,$got);
-      $got = $client->recv($data,POSIX::BUFSIZ,0);
+      $got = $client->sysread($data,POSIX::BUFSIZ);
       unless(defined $got && length $data) {
 	# Aww. We had an error reading from their socket, so we have
 	#  to cut them loose.
@@ -212,7 +236,7 @@ for(;;) {
     # Skip it if we don't have anything available to send it.
     next unless $outbuffer{$client};
     # Actually attempt to send some of the data.
-    my $sent = $client->send($outbuffer{$client},0);
+    my $sent = $client->syswrite($outbuffer{$client},POSIX::BUFSIZ);
     if(!defined($sent)) { next; }
     # If we couldn't manage to send the whole thing, then trim what we
     #  did manage to send them out of the out-going buffer so we don't
@@ -302,6 +326,8 @@ sub setnonblocking {
 sub displayhelp {
   print "Usage: pircd [OPTION]...
   -p                              Set default listening port   [$port]
+  -q                              Set default SSL port         [$sslport]
+  -s                              Enable SSL
   -b                              Set the max incoming backlog [$backlog]
   -f                              Server configuration file    [$conf]
   -d                              Fork and daemonize

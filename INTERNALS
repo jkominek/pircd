@@ -45,13 +45,18 @@ fail.
 exiting. It then attempts to create a new session, with itself as the parent.
 (This also removes any controlling tty)
 
- Listening Socket
- ----------------
+ Listening Socket(s)
+ -------------------
  pircd uses IO::Socket::INET to create a listening socket. The port defaults
 to 6667, with a backlog of 10. Both values are changable via the command line.
 If IO::Socket::INET fails to return a valid socket, pircd will log an error
-message, and exit. Slightly after that, IO::Select is used to allow easy
-select()ing of the sockets. The listening socket is passed to the constructor.
+message, and exit.
+ If SSL is turned on, it will create another IO::Socket::SSL which listens.
+Luckily, IO::Socket::SSL works identically to IO::Socket::INET
+ P: lines specify other ports to listen on. Each of these is iterated over
+and a listening socket is created for it.
+ All listening sockets are stored in a hash as keys. All of the keys are
+added to the IO::Select object
 
  Local Server creation and Configuration file parsing
  ----------------------------------------------------
@@ -66,7 +71,7 @@ at the beginning, since on a system with lots of connections, we would
 probably need it multiple times during that loop. We then proceed to loop
 over each socket which can be read from at the moment.
 {
- * When the newly active socket happens to be the listening one, we seperate
+ * When the newly active socket happens to be a listening one, we seperate
 the new socket from the listening one by accept()ing, make the new socket
 non-blocking, create a new instance of Connection to represent the connection,
 and add it to the right arrays.

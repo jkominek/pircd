@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Thu Mar 23 16:55:47 2000 by jay.kominek@colorado.edu
+# Revised: Tue Dec 12 19:14:00 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -83,6 +83,7 @@ sub new {
   $this->{'ircname'}     = $connection->{'ircname'};
   $this->{'server'}      = $connection->{'server'};
   $this->{'connected'}   = $connection->{'connected'};
+  $this->{'ssl'}         = $connection->{'ssl'};
   $this->{'idle_base'}   =
   $this->{'last_active'} = time();
   $this->{'modes'}       = { };
@@ -432,6 +433,9 @@ sub handle_whois {
 	# *** Nick has been 3 minutes and 42 seconds idle
 	if($user->islocal()) {
 	  $this->sendnumeric($this->server,317,($user->nick,time()-$user->{'idle_base'},$user->connected),"seconds idle, signon time");
+	}
+	if($user->ssl()) {
+	  $this->sendnumeric($this->server,342,$user->nick." is connected via SSL");
 	}
       } else {
 	$this->sendnumeric($this->server,401,$target,"No suck nick");
@@ -1107,6 +1111,11 @@ sub connected {
 sub away {
   my $this = shift;
   return $this->{awaymsg};
+}
+
+sub ssl {
+  my $this = shift;
+  return $this->{'ssl'};
 }
 
 # We don't want to ping someone we've already pung.
