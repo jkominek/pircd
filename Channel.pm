@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Thu Mar 23 16:46:33 2000 by jay.kominek@colorado.edu
+# Revised: Tue Dec 12 20:25:51 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -655,7 +655,7 @@ sub privmsgnotice {
   foreach(keys(%{$this->{'users'}})) {
     if(($this->{'users'}->{$_} ne $user)&&($this->{'users'}->{$_}->islocal())) {
       $this->{'users'}->{$_}->senddata(
-				       sprintf(":%s!%s\@%s %s %s :%s",
+				       sprintf(":%s!%s\@%s %s %s :%s\r\n",
 					       $user->nick,
 					       $user->username,
 					       $user->host,
