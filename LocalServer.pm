@@ -2,7 +2,7 @@
 # 
 # LocalServer.pm
 # Created: Sat Sep 26 18:11:12 1998 by jay.kominek@colorado.edu
-# Revised: Fri Jul 21 02:25:02 2000 by jay.kominek@colorado.edu
+# Revised: Sat Aug 19 23:10:44 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -211,7 +211,8 @@ sub getmotd {
 # Same thing as getmotd, except for the admin information
 sub getadmin {
   my $this = shift;
-  return @{$this->{'admin'}};
+  return @{$this->{'admin'}} if defined $this->{'admin'};
+  return ('','','');
 }
 
 sub getopers {
