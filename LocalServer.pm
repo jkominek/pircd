@@ -2,7 +2,7 @@
 # 
 # LocalServer.pm
 # Created: Sat Sep 26 18:11:12 1998 by jay.kominek@colorado.edu
-# Revised: Mon Oct  5 15:20:26 1998 by jay.kominek@colorado.edu
+# Revised: Mon Nov 30 10:57:52 1998 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -43,7 +43,7 @@ sub new {
   my $class = ref($proto) || $proto;
   my $this  = { };
 
-  $this->{conffile} = shift;
+  $this->{conffile} = (shift||"server.conf");
   &loadconffile($this);
 
   bless($this, $class);
@@ -54,8 +54,10 @@ sub loadconffile {
   my $this = shift;
 
   open(CONF,$this->{conffile});
+  my @lines = <CONF>;
+  close(CONF);
   my $line;
-  CONFPARSE: while($line = <CONF>) {
+ CONFPARSE: foreach $line (@lines) {
     chomp($line);
 
     # Machine line
@@ -92,7 +94,6 @@ sub loadconffile {
       next CONFPARSE;
     }
   }
-  close(CONF);
 }
 
 # Things That Do Things
@@ -167,7 +168,7 @@ sub hops {
 }
 
 sub version {
-  return "pircd-alpha-five";
+  return $Utils::version;
 }
 
 # Returns the MOTD of the server as an array of lines.
