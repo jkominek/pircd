@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Thu Dec 10 22:36:06 1998 by jay.kominek@colorado.edu
+# Revised: Thu Jan 21 10:24:09 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # This program is free software; you can redistribute it and/or modify it
@@ -388,7 +388,6 @@ sub handle_topic {
   my $this = shift;
   my($command,$channel,$topic) = split(/\s+/,shift,3);
   my @channels = split(/,/,$channel);
-  $topic =~ s/^://;
   my $ret = Utils::lookup($channel);
   if((!defined($ret)) || (!$ret->isa("Channel"))) {
     $this->sendnumeric($this->server,403,$channel,"No such channel.");
@@ -396,10 +395,11 @@ sub handle_topic {
   }
   foreach(@channels) {
     if(defined($topic)) {
+      $topic =~ s/^://;
       $ret->topic($this,$topic);
     } else {
       my @topicdata = $ret->topic;
-      if($#topicdata==3) {
+      if($#topicdata==2) {
 	$this->sendnumeric($this->server,332,$ret->name,$topicdata[0]);
 	$this->sendnumeric($this->server,333,$ret->name,$topicdata[1],$topicdata[2],undef);
       } else {
