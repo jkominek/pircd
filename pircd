@@ -2,7 +2,7 @@
 # 
 # pircd
 # Created: Mon Sep 14 12:55:01 1998 by jay.kominek@colorado.edu
-# Revised: Fri Nov  5 13:39:15 1999 by jay.kominek@colorado.edu
+# Revised: Thu Jan 20 21:28:54 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -216,6 +216,9 @@ for(;;) {
       next;
     }
   }
+
+  # Trim the history down to the most recent 32
+  splice @Utils::nickhistory, 32;
 }
 
 END {
