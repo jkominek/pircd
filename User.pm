@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Sun Oct 31 13:59:25 1999 by jay.kominek@colorado.edu
+# Revised: Wed Nov 17 00:12:27 1999 by tek@wiw.org
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -491,7 +491,7 @@ sub handle_whois {
 	#  ... or ...
 	# *** Nick is a god-like IRC Operator
 	if($user->ismode('o')) {
-	  $this->sendnumeric($this->server,313,$user->nick,"is ".($user->ismode('g')?"a god-like":"an")." IRC Operator\r\n");
+	  $this->sendnumeric($this->server,313,$user->nick,"is ".(($user->ismode('g'))?"a god-like":"an")." IRC Operator\r\n");
 	}
 	# *** Nick is away: excuse
 	if($user->away()) {
@@ -877,9 +877,18 @@ sub handle_nick {
       $this->{'nick'}    = $newnick;
       Utils::users()->{$this->nick()} = $this;
       $this->senddata(":".$this->{'oldnick'}." NICK :".$this->{'nick'}."\r\n");
-      my $channel;
-      foreach $channel (values(%{$this->{'channels'}})) {
-	$channel->nickchange($this);
+
+      # So that no given user will receive the nick change twice -
+      # we build this hash and then send the message to those users.
+      my(%userlist);
+      foreach my $channel (keys(%{$this->{'channels'}})) {
+	my %storage = %{$this->{channels}->{$channel}->nickchange($this)};
+	foreach(keys %storage) { $userlist{$_} = $storage{$_} }
+      }
+      foreach my $user (keys %userlist) {
+	next unless $userlist{$user}->islocal();
+	$userlist{$user}->senddata(":".$this->{'oldnick'}." NICK :".
+	        	           $this->{'nick'}."\r\n");
       }
       # propogate to other servers
     } else {

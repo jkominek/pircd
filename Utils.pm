@@ -2,7 +2,7 @@
 # 
 # Utils.pm
 # Created: Wed Sep 23 21:56:44 1998 by jay.kominek@colorado.edu
-# Revised: Sun Oct 31 14:01:45 1999 by jay.kominek@colorado.edu
+# Revised: Sun Oct 31 14:07:43 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -31,7 +31,7 @@ tie my %channels, 'Tie::IRCUniqueHash';
 my $syslogsetup = 0;
 
 sub version {
-  return "pircd-alpha-eleven";
+  return "pircd-alpha-twelve";
 }
 
 sub lookup {
