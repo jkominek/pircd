@@ -2,7 +2,7 @@
 # 
 # Server.pm
 # Created: Tue Sep 15 13:55:23 1998 by jay.kominek@colorado.edu
-# Revised: Thu Apr 22 11:19:13 1999 by jay.kominek@colorado.edu
+# Revised: Wed Jun 30 14:47:20 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -21,6 +21,33 @@ use UNIVERSAL qw(isa);
 
 use Tie::IRCUniqueHash;
 
+my $commands = {'PING'   => \&handle_ping,
+		'PONG'   => \&handle_pong,
+		# Channel membership
+		'JOIN'   => \&handle_join,
+		'PART'   => \&handle_part,
+		'INVITE' => \&handle_invite,
+		'KICK'   => \&handle_kick,
+		# Channel status
+		'TOPIC'  => \&handle_topic,
+		'MODE'   => \&handle_mode,
+		# User presence
+		'NICK'   => \&handle_nick,
+		'KILL'   => \&handle_kill,
+		'QUIT'   => \&handle_quit,
+		# User status
+		'AWAY'   => \&handle_away,
+		# Server presence
+		'SERVER' => \&handle_server,
+		'SQUIT'  => \&handle_squit,
+		# Communication
+		'PRIVMSG'=> \&handle_privmsg,
+		'NOTICE' => \&handle_notice,
+		# Burst commands
+		'BU'     => \&handle_burstuser,
+		'BC'     => \&handle_burstchannel
+	       };
+
 ###################
 # CLASS CONSTRUCTOR
 ###################
@@ -32,12 +59,12 @@ sub new {
   my $this  = { };
   my $connection = shift;
 
-  $this->{name}        = $connection->{servername};
-  $this->{description} = $connection->{description};
-  $this->{distance}    = $connection->{distance};
-  $this->{proto}       = $connection->{proto};
-  $this->{server}      = $connection->{server};
-  $this->{last_active} = time();
+  $this->{'name'}        = $connection->{'servername'};
+  $this->{'description'} = $connection->{'description'};
+  $this->{'distance'}    = $connection->{'distance'};
+  $this->{'proto'}       = $connection->{'proto'};
+  $this->{'server'}      = $connection->{'server'};
+  $this->{'last_active'} = time();
 
   tie my %usertmp,  'Tie::IRCUniqueHash';
   $this->{'users'}    = \%usertmp;
@@ -48,7 +75,7 @@ sub new {
   if(defined($connection->{'socket'})) {
     $this->{'socket'}    = $connection->{'socket'};
     $this->{'outbuffer'} = $connection->{'outbuffer'};
-    $this->setupaslocal();
+    $this->setupaslocal($connection->{'initiated'});
   }
   $this->{'server'}->addchildserver($this);
   return $this;
@@ -56,58 +83,31 @@ sub new {
 
 sub setupaslocal {
   my $this = shift;
+  my $initiated = shift;
 
-  $this->addcommand('PING',    \&handle_ping);
-  $this->addcommand('PONG',    \&handle_pong);
-
-  # Channel membership
-  $this->addcommand('JOIN',    \&handle_join);
-  $this->addcommand('PART',    \&handle_part);
-  $this->addcommand('INVITE',  \&handle_invite);
-  $this->addcommand('KICK',    \&handle_kick);
-  # Channel status
-  $this->addcommand('TOPIC',   \&handle_topic);
-  $this->addcommand('MODE',    \&handle_mode);
-
-  # User presence
-  $this->addcommand('NICK',    \&handle_nick);
-  $this->addcommand('KILL',    \&handle_kill);
-  $this->addcommand('QUIT',    \&handle_quit);
-  # User status
-  $this->addcommand('AWAY',    \&handle_away);
-
-  # Server presence
-  $this->addcommand('SERVER',  \&handle_server);
-  $this->addcommand('SQUIT',   \&handle_squit);
-
-  # Communication
-  $this->addcommand('PRIVMSG', \&handle_privmsg);
-  $this->addcommand('NOTICE',  \&handle_notice);
-
-  # Burst commands
-  $this->addcommand('BU',      \&handle_burstuser);
-  $this->addcommand('BC',      \&handle_burstchannel);
+  my $server = $this->server;
 
   # lookup and send password
-  $this->senddata("PASS :password\r\n");
+  if(!$initiated) {
+    $this->senddata("PASS :password\r\n");
 
   ###################################################################
   # Start dumping the state of the entire network at the new server #
-  my $server = $this->server;
 
   # Dump the server tree
-
   # This server has to be sent in the special fashion. All other
   # servers are spewed using the recursive method 'spewchildren'
-  $this->senddata(join(' ',
+  $this->senddata(join(' ', # delimiter
+		       "SERVER",
 		       $server->name,
 		       1,
 		       0,    # timestamp a
 		       time, # timestamp b
 		       "Px1",
 		       ":".$server->description)."\r\n");
-  my $childserver;
-  foreach $childserver ($server->children()) {
+  }
+
+  foreach my $childserver ($server->children()) {
     $this->spewchildren($childserver);
   }
 
@@ -117,8 +117,7 @@ sub setupaslocal {
   # data and then spew it binaryily.
 
   # As it is, we will merely use the special burst user command
-  my $user;
-  foreach $user (values(%{Utils::users()})) {
+  foreach my $user (values(%{Utils::users()})) {
     $this->senddata(join(' ',
 			 ":".$user->server->name,
 			 "BU", # Burst User. Only place of generation.
@@ -126,12 +125,11 @@ sub setupaslocal {
 			 $user->username,
 			 $user->host,
 			 $user->genmodestr,
-			 $user->ircname)."\r\n");
+			 ":".$user->ircname)."\r\n");
   }
 
   # Burst channel information
-  my $channel;
-  foreach $channel (values(%{Utils::channels()})) {
+  foreach my $channel (values(%{Utils::channels()})) {
     # :server.name BC #channel creationtime modestr modeargs
     #  nick @opnick +@opvoicenick +voicenick nick +voicenick2 @opnick2
     $this->senddata(join(' ',
@@ -177,16 +175,16 @@ sub handle {
   foreach $line (split(/\x00/,$rawline)) {
     $line =~ s/\s+$//;
 
-    $this->{last_active} = time();
-    delete($this->{ping_waiting});
+    $this->{'last_active'} = time();
+    delete($this->{'ping_waiting'});
 
     $line =~ /^\S+ (\S+) .+$/;
     my $command = $1;
 
     # Parsing stuff from a server is a bit more complicated than parsing
     # for a user.
-    if(ref($this->{commands}->{$command})) {
-      &{$this->{commands}->{$command}}($this,$line);
+    if(ref($commands->{$command})) {
+      &{$commands->{$command}}($this,$line);
     } else {
       if($line =~ /[\w\d\s]/) {
 	print "Received unknown command string \"$line\" from ".$this->name."\n";
@@ -207,6 +205,41 @@ sub handle_ping {
 sub handle_pong {
   # my $this = shift;
   # Don't waste our time doing anything
+}
+
+# :remote BU nick username host modestr ircname
+sub handle_burstuser {
+  my $this = shift;
+  my($from,$command,$nick,$username,$host,$modestr,$ircname) =
+    split/\s+/,shift,7;
+  $from    =~ s/^://;
+  $ircname =~ s/^://;
+  my $user = Connection->new({nick => $nick,
+			      user => $username,
+			      host => $host,
+			      ircname => $ircname,
+			      server  => $this,
+			      connected => time});
+  my @modes = split//,$modestr;
+  shift @modes;
+  foreach my $mode (@modes) {
+    $user->setmode($mode);
+  }
+  Utils::users()->{$user->nick()} = $user;
+}
+
+# :remote BC name creation modestr modeargs nicklistwmode
+sub handle_burstchannel {
+  my $this = shift;
+  my($from,$command,$name,$creation,$modestr,@remainder) = split/\s+/,shift;
+  $from  =~ s/^://;
+  my $channel = Channel->new($name,$creation);
+  $modestr =~ s/^\+//;
+  foreach my $mode (split//,$modestr) {
+    if(Channel::isvalidchannelmode($mode)) {
+      $channel->{'modes'};
+    }
+  }
 }
 
 # :remote NICK nick hopcount timestamp username hostname servername ircname
@@ -238,6 +271,7 @@ sub handle_nick {
   }
 }
 
+# :nick KILL target :excuse
 sub handle_kill {
   my $this = shift;
 
@@ -263,20 +297,63 @@ sub handle_quit {
 # :nick AWAY :excuse
 sub handle_away {
   my $this = shift;
-  my($nick,$command,$excuse) = split(/\s+/,shift,3);
+  my($nick,$command,$excuse) = split/\s+/,shift,3;
   $nick   =~ s/^://;
   $excuse =~ s/^://;
   my $user = Utils::lookup($nick);
   if(ref($user) && $user->isa("User")) {
     if(defined($excuse)) {
-      $user->{awaymsg} = $excuse;
+      $user->{'awaymsg'} = $excuse;
     } else {
-      delete($user->{awaymsg});
+      delete($user->{'awaymsg'});
     }
   } else {
     # network desyncage.
   }
 }
+
+# :nick JOIN :#channel1,#channel2,...
+sub handle_join {
+  my $this = shift;
+  my($nick,$command,$channels) = split/\s+/,shift,3;
+  $nick     =~ s/^://;
+  $channels =~ s/^://;
+  my $user = Utils::lookup($nick);
+  if(ref($user) && $user->isa("User")) {
+    my @channels = split/,/,$channels;
+    foreach my $channel (@channels) {
+      $channel = Utils::lookup($channel);
+      if(ref($channel) && $channel->isa("Channel")) {
+	$channel->force_join($user,$this);
+      }
+    }
+  } else {
+    # Network desyncage
+  }
+}
+
+# :nick PART :#channel1,#channel2,...
+sub handle_part {
+  my $this = shift;
+  my($nick,$command,$channels) = split/\s+/,shift,3;
+  $nick     =~ s/^://;
+  $channels =~ s/^://;
+  my $user = Utils::lookup($nick);
+  if(ref($user) && $user->isa("User")) {
+    my @channels = split/,/,$channels;
+    foreach my $channel (@channels) {
+      $channel = Utils::lookup($channel);
+      if(ref($channel) && $channel->isa("Channel")) {
+	$channel->part($user,$this);
+      }
+    }
+  } else {
+    # Network desyncage
+  }
+}
+
+
+#######################################################################
 
 sub squit {
   my $this = shift;
@@ -304,6 +381,9 @@ sub squit {
 # SENDING THE SERVER STUFF
 ##########################
 
+########################
+# User state information
+
 # Takes a User as the argument, sends the server all requisite information
 # about that user.
 sub nick {
@@ -321,6 +401,8 @@ sub nick {
 		       $user->ircname)."\r\n");
 }
 
+# Takes a user and their excuse as the arguments and informs
+# $this of that user's disconnection
 sub uquit {
   my $this = shift;
   my $user = shift;
@@ -329,6 +411,41 @@ sub uquit {
 		       ":".$user->nick,
 		       "QUIT",
 		       $excuse)."\r\n");
+}
+
+###############
+# Channel state
+
+sub join {
+  my $this    = shift;
+  my $user    = shift;
+  my $channel = shift;
+  $this->senddata(join(' ',
+		       ":".$user->nick,
+		       "JOIN",
+		       $channel->name)."\r\n");
+}
+
+sub part {
+  my $this    = shift;
+  my $user    = shift;
+  my $channel = shift;
+  $this->senddata(join(' ',
+		       ":".$user->nick,
+		       "PART",
+		       $channel->name)."\r\n");
+}
+
+sub mode {
+  my $this    = shift;
+  my $from    = shift;
+  my $target  = shift;
+  my $str     = shift;
+  $this->senddata(join(' ',
+		       ":".($from->isa("User")?$from->nick:$from->name),
+		       "MODE",
+		       ($target->isa("User")?$target->nick:$target->name),
+		       $str)."\r\n");
 }
 
 # Dispatch a wallops to this server
