@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Fri Feb 12 12:17:32 1999 by jay.kominek@colorado.edu
+# Revised: Sun Feb 21 13:54:44 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -817,7 +817,7 @@ sub handle_mode {
   } elsif($ret->isa("Channel")) {
     # In the spirit of letting the channel object handle
     # most of the checking in regards to itself, we simply
-    # make the mode change request to it, and let it sort
+    # send the mode change request to it, and let it sort
     # out whether or not we're op'd and what not.
     $ret->mode($this,$modestr,@arguments);
   }
@@ -929,6 +929,7 @@ sub handle_kill {
 sub handle_wallops {
   my $this = shift;
   my($command,$message) = split(/\s+/,shift,2);
+  my($user,$server);
 
   if(!$this->ismode('o')) {
     $this->sendnumeric($this->server,481,"Permission Denied- You're not an IRC operator");
@@ -936,12 +937,14 @@ sub handle_wallops {
   }
 
   $message =~ s/^://;
-  foreach($this->server->users()) {
-    if($_->ismode('w')) {
-      $_->senddata(":".$this->nick."!".$this->username."\@".$this->host." WALLOPS :$message\r\n");
+  foreach $user ($this->server->users()) {
+    if($user->ismode('w')) {
+      $user->senddata(":".$this->nick."!".$this->username."\@".$this->host." WALLOPS :$message\r\n");
     }
   }
-  # Disseminate the message to all connected servers.
+  foreach $server ($this->server->children) {
+    $server->wallops($this,$message);
+  }
 }
 
 # REHASH
@@ -1177,21 +1180,23 @@ sub ping {
 sub quit {
   my $this = shift;
   my $msg  = shift;
-  my $channame;
+  my($channame,$channel);
   # Remove them from all appropriate structures, etc
   # and announce it to local channels
   foreach $channame (keys(%{$this->{hasinvitation}})) {
-    my $channel = Utils::lookupchannel($channame);
+    $channel = Utils::lookupchannel($channame);
     if(ref($channel) && isa($channel,"Channel")) {
       delete($channel->{hasinvitation}->{$this});
     }
   }
   # Notify all the channels they're in of their disconnect
-  foreach(keys(%{$this->{channels}})) {
-    $this->{channels}->{$_}->notifyofquit($this,$msg);
+  foreach $channel (keys(%{$this->{channels}})) {
+    $this->{channels}->{$channel}->notifyofquit($this,$msg);
   }
   # Tell connected servers that they're gone
   $this->server->removeuser($this);
+  # Remove us from the User hash
+  delete(Utils::users()->{$this->lcnick()});
   # Disconnect them
   if($this->islocal()) {
     &main::finishclient($this->{'socket'});
@@ -1245,7 +1250,7 @@ sub sendnumeric {
 sub senddata {
   my $this = shift;
 
-  $this->{outbuffer}->{$this->{'socket'}} .= join('',@_);
+  $this->{'outbuffer'}->{$this->{'socket'}} .= join('',@_);
 }
 
 1;
