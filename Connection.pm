@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Sat Nov 20 03:53:47 1999 by tek@wiw.org
+# Revised: Tue Jan 18 16:29:56 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -92,6 +92,10 @@ my $commands={
 	    $this->{ready} = 1;
 	}
     },
+    QUIT=>sub {
+        my($this,$dummy,$excuse)=@_;
+	$this->quit($excuse);
+    },
 };
 
 # Given a line of user input, process it and take appropriate action
@@ -101,6 +105,9 @@ sub handle {
     Utils::do_handle($this,$line,$commands);
 }
 
+# excuses should always be discarded for Connections.
+# people who don't completely connect to the server/network should
+# not be allowed to transmit any data via it.
 sub quit {
   my($this,$msg)=@_;
   &main::finishclient($this->{'socket'});
