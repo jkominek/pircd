@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Wed Feb  2 10:35:29 2000 by jay.kominek@colorado.edu
+# Revised: Wed Feb  9 20:06:25 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -578,7 +578,7 @@ sub invite {
     $target->addinvited($this);
     $target->invite($from,$this->{name});
   } else {
-    $target->sendnumeric($from->server,482,$this->{name},"You are not a channel operator");
+    $from->sendnumeric($from->server,482,$this->{name},"You are not a channel operator");
   }
 }
 
