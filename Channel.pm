@@ -596,6 +596,8 @@ sub kick {
       }
     }
     delete($this->{'users'}->{$sap->nick()});
+    delete($this->{'ops'}->{$sap->nick()});
+    delete($this->{'voice'}->{$sap->nick()});
     if(0==scalar keys(%{$this->{'users'}})) {
       delete(Utils::channels()->{$this->{name}});
     }
