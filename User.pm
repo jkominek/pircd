@@ -118,7 +118,7 @@ sub sendsplash {
   $this->sendnumeric($this->server,4,($this->server->{name},$this->server->VERSION,"dioswkg","biklmnopstv"),undef);
   # Send them LUSERS output
   $this->handle_lusers("LUSERS");
-  $this->notice($this->server,"Highest connection count: ".$Utils::stats{highconnections}." (".$Utils::stats{highclients}." clients)");
+  $this->privmsgnotice("NOTICE",$this->server,"Highest connection count: ".$Utils::stats{highconnections}." (".$Utils::stats{highclients}." clients)");
   # Send them the MOTD upon connection
   $this->handle_motd("MOTD");
 }
@@ -159,24 +159,28 @@ sub multisend {
 # do the work for the privmsg and notice handlers
 sub msg_or_notice {
     my($this,$string,$targetstr,$msg)=(shift,shift,shift,shift);
-    my $target;
 
-  foreach $target (split(/,/,$targetstr)) {
+  foreach my $target (split(/,/,$targetstr)) {
     if($this->ismode('o') && ($target =~ /^\$/)) {
       my $matchingservers = $target;
       $matchingservers =~ s/^\$//;
       $matchingservers =~ s/\./\\\./g;
       $matchingservers =~ s/\?/\./g;
       $matchingservers =~ s/\*/\.\+/g;
+      tie my %uplinks, 'Tie::RefHash';
       foreach my $server (values(%{Utils::servers()})) {
 	if($server->{name} =~ /$matchingservers$/) {
 	  if($server eq $this->server) {
 	    my @users = $this->server->users();
 	    multisend(":".$this->nick."!".$this->username."\@".$this->host." $string>$target :".$msg, @users);
 	  } else {
-	    # The server is remote. Dispatch the global privmsg/notice
+	    # The server is remote, accumulate the uplink to it
+	    $uplinks{$server} = 1;
 	  }
 	}
+      }
+      foreach my $uplink (keys %uplinks) {
+	  # Dispatch the message to the server
       }
     } elsif($this->ismode('o') && ($target =~ /^\#.+\..+/)) {
       my $matchingusers = $target;
@@ -185,18 +189,15 @@ sub msg_or_notice {
       $matchingusers =~ s/\?/\./g;
       $matchingusers =~ s/\*/\.\+/g;
       multisend(":".$this->nick."!".$this->username."\@".$this->host." $string>$target :".$msg,	grep { $_->host =~ /$matchingusers/ } $this->server->users());
-      # dispatch globally.
+
+      # Dispatch the message to all other servers
     } else {
       # ..lookup the associated object..
       my $tmp = Utils::lookup($target);
       if(isa($tmp,"User")||isa($tmp,"Channel")) {
 	  # ..and if it is a user or a channel (since they're the only things
 	  #  that can handle receiving a private message), dispatch it to them.
-	  if($string eq "PRIVMSG") {
-	      $tmp->privmsg($this,$msg);
-	  } else {
-	      $tmp->notice($this,$msg);
-	  }
+	  $tmp->privmsgnotice($string,$this,$msg);
       } else {
       # Complain that the..   ..doesn't exist.
 	if(($target =~ /^\#/)||($target =~ /^\&/)) {
@@ -751,7 +752,7 @@ sub handle_ping {
 sub handle_help {
   my $this = shift;
   foreach my $command (keys %{$commands}) {
-    $this->notice($this->server,$command);
+    $this->privmsgnotice("NOTICE",$this->server,$command);
   }
 }
 
@@ -903,7 +904,7 @@ sub handle_connect {
   if(!defined($sserver)) {
     my $tserverinfo = $this->server->lookupconnection($tserver);
     if(!ref($tserverinfo)) {
-     $this->notice($this->server,"Connect: Host $tserver not listed in configuration");
+     $this->privmsgnotice("NOTICE",$this->server,"Connect: Host $tserver not listed in configuration");
      return;
     }
     $port = $port || $$tserverinfo[2] || 6667;
@@ -916,7 +917,7 @@ sub handle_connect {
 				"PASS :$$tserverinfo[2]\r\n" .
 				"SERVER ".$this->server->{name}." 1 0 ".time." Px1 :".$this->server->description."\r\n");
     } else {
-      $this->notice($this->server,"Failed to connect to $tserver port $port");
+      $this->privmsgnotice("NOTICE",$this->server,"Failed to connect to $tserver port $port");
     }
   } else {
     # Forward the connect request to another server
@@ -1129,46 +1130,28 @@ sub onchan {
 # SENDING THIS USER STUFF
 #########################
 
-# Sends this user a private message
-sub privmsg {
+# Sends this user a private message or notice
+sub privmsgnotice {
   my $this = shift;
+  my $string = shift;
   my $from = shift;
   my $msg  = shift;
 
   if($this->{'socket'}) {
     if(isa($from,"User")) {
-      $this->senddata(":".$from->nick."!".$from->username."\@".$from->host." PRIVMSG ".$this->nick." :$msg\r\n");
+      $this->senddata(":".$from->nick."!".$from->username."\@".$from->host." $string ".$this->nick." :$msg\r\n");
 
-      if($this->away()) {
+      if($this->away() && $string eq "PRIVMSG") {
 	$from->sendnumeric($this->server,301,$this->nick,$this->away);
       }
 
     } elsif(isa($from,"Server")) {
-      $this->senddata(":".$from->{name}." PRIVMSG ".$this->nick." :$msg\r\n");
+      $this->senddata(":".$from->{name}." $string ".$this->nick." :$msg\r\n");
     }
   } else {
     # They're not a local user, so we'll have to
     # route it through a server.
-    # $this->server->privmsg($from,$this,$msg);
-  }
-}
-
-# Sends this user a notice
-sub notice {
-  my $this = shift;
-  my $from = shift;
-  my $msg  = shift;
-
-  if($this->{'socket'}) {
-    if(isa($from,"User")) {
-      $this->senddata(":".$from->nick."!".$from->username."\@".$from->host." NOTICE ".$this->nick." :$msg\r\n");
-    } elsif(isa($from,"Server")) {
-      $this->senddata(":".$from->{name}." NOTICE ".$this->nick." :$msg\r\n");
-    }
-  } else {
-    # They're not a local user, so we'll have to
-    # route it through a server.
-    # $this->server->notice($from,$this,$msg);
+    # $this->server->privmsgnotice($from,$string,$this,$msg);
   }
 }
 
