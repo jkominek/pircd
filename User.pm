@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Mon Jan 24 16:37:37 2000 by jay.kominek@colorado.edu
+# Revised: Thu Jan 27 13:23:16 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -82,6 +82,7 @@ sub new {
   $this->{'ircname'}     = $connection->{'ircname'};
   $this->{'server'}      = $connection->{'server'};
   $this->{'connected'}   = $connection->{'connected'};
+  $this->{'idle_base'}   =
   $this->{'last_active'} = time();
   $this->{'modes'}       = { };
 
@@ -219,6 +220,7 @@ sub msg_or_notice {
 sub handle_privmsg {
     my($this,$dummy,$targetstr,$msg)=(shift,shift,shift,shift);
 
+    $this->{'idle_base'} = time;
 #    print "about to msg_or_notice '$this' PRIVMSG '$targetstr' '$msg'\n";
 #    print "d '$dummy' rest '".join(':',@_)."'\n";
     msg_or_notice($this,'PRIVMSG',$targetstr,$msg);
@@ -243,6 +245,8 @@ sub handle_join {
   my($this,$dummy,$channelstr,$keystr)=(shift,shift,shift,shift);
   my @channels = split(/,/,$channelstr);
   my @keys     = split(/,/,$keystr);
+
+  $this->{'idle_base'} = time;
 
   # For each channel they want to join..
   foreach my $channel (@channels) {
@@ -270,6 +274,8 @@ sub handle_join {
 sub handle_part {
   my($this,$dummy,$channelstr)=(shift,shift,shift);
   my $channel;
+
+  $this->{'idle_base'} = time;
 
   foreach $channel (split(/,/,$channelstr)) {
     my $channeltmp = Utils::irclc($channel);
@@ -423,7 +429,7 @@ sub handle_whois {
 	}
 	# *** Nick has been 3 minutes and 42 seconds idle
 	if($user->islocal()) {
-	  $this->sendnumeric($this->server,317,($user->nick,time()-$user->last_active,$user->connected),"seconds idle, signon time");
+	  $this->sendnumeric($this->server,317,($user->nick,time()-$user->{'idle_base'},$user->connected),"seconds idle, signon time");
 	}
       }
     }
@@ -902,20 +908,10 @@ sub handle_kill {
     return;
   }
 
-  my $user = Utils::lookupuser($target);
+  my $user = Utils::lookupuser($target,1);
   if(!defined($user)) {
-    my $irclctarget = Utils::irclc($target);
-    for(my $i=0;$i<=$#Utils::nickhistory;$i++) {
-      last if (time-$Utils::nickhistory[$i]->{'time'}>15);
-      if($irclctarget eq Utils::irclc($Utils::nickhistory[$i]->{'nick'})) {
-	$user = Utils::lookupuser($Utils::nickhistory[$i]->{'newnick'});
-	last;
-      }
-    }
-    if(!defined($user)) {
       $this->sendnumeric($this->server,401,$target,"No such nick");
       return;
-    }
   }
 
   $user->kill($excuse, $this);

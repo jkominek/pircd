@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Sun Jan 23 20:40:53 2000 by jay.kominek@colorado.edu
+# Revised: Thu Jan 27 13:44:02 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -185,7 +185,7 @@ sub setop {
   my $this   = shift;
   my $user   = shift;
   my $target = shift;
-  my $ret    = Utils::lookup($target);
+  my $ret    = Utils::lookupuser($target,1);
   if(!(ref($ret) && isa($ret,"User"))) {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return 0;
@@ -207,7 +207,7 @@ sub unsetop {
   my $this   = shift;
   my $user   = shift;
   my $target = shift;
-  my $ret    = Utils::lookup($target);
+  my $ret    = Utils::lookupuser($target,1);
   if(!(ref($ret) && isa($ret,"User"))) {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return 0;
@@ -241,7 +241,7 @@ sub setvoice {
   my $this   = shift;
   my $user   = shift;
   my $target = shift;
-  my $ret    = Utils::lookup($target);
+  my $ret    = Utils::lookupuser($target,1);
   if(!(ref($ret) && isa($ret,"User"))) {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return 0;
@@ -263,7 +263,7 @@ sub unsetvoice {
   my $this   = shift;
   my $user   = shift;
   my $target = shift;
-  my $ret    = Utils::lookup($target);
+  my $ret    = Utils::lookupuser($target,1);
   if(!(ref($ret) && isa($ret,"User"))) {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return 0;
@@ -532,7 +532,7 @@ sub part {
 sub kick {
   my($this,$user,$target,$excuse)=@_;
   my @foo;
-  my $sap = Utils::lookupuser($target);
+  my $sap = Utils::lookupuser($target,1);
 
   if(!$this->isop($user) && !$user->ismode('g')) {
     Connection::sendreply($user,
