@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Fri Jan 21 20:26:42 2000 by jay.kominek@colorado.edu
+# Revised: Thu Jan 27 12:17:59 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -251,7 +251,7 @@ sub donick {
 		       "Nick change too fast. Please wait $timeleft more seconds.");
   } elsif (!Utils::validnick($newnick)) {
     $this->sendnumeric($this->server,432,$newnick,"Erroneous nickname.");
-  } elsif (defined(Utils::lookup($newnick))) {
+  } elsif (defined(Utils::lookup($newnick)) && (Utils::irclc($newnick) ne Utils::irclc($this->nick))) {
     $this->sendnumeric($this->server,433,$newnick,
 		       "Nickname already in use");
   } elsif (!defined($this->{'nick'})) {
@@ -261,7 +261,7 @@ sub donick {
   } else {
     $this->{'oldnick'} = $this->{'nick'};
     $this->{'nick'}    = $newnick;
-    $this->senddata(":".$this->{'oldnick'}." NICK :".$this->{'nick'}."\r\n");
+    $this->senddata(":$$this{oldnick}!$$this{user}\@$$this{host} NICK :".$this->{'nick'}."\r\n");
     if ($this->isa('User')) {	# not just an unpromoted connection
       unshift @Utils::nickhistory, { nick => $this->{'oldnick'},
 				     newnick => $this->{'nick'},
@@ -277,17 +277,16 @@ sub donick {
       
       # So that no given user will receive the nick change twice -
       # we build this hash and then send the message to those users.
-      my(%userlist);
+      my %userlist;
       foreach my $channel (keys(%{$this->{'channels'}})) {
 	my %storage = %{$this->{channels}->{$channel}->nickchange($this)};
 	foreach (keys %storage) {
-	  $userlist{$_} = $storage{$_};
+	  $userlist{$_} = $storage{$_} if $storage{$_} != $this;
 	}
       }
       foreach my $user (keys %userlist) {
 	next unless $userlist{$user}->islocal();
-	$userlist{$user}->senddata(":".$this->{'oldnick'}." NICK :".
-				   $this->{'nick'}."\r\n");
+	$this->senddata(":$$this{oldnick}!$$this{user}\@$$this{host} NICK :$$this{nick}\r\n");
       }
       # FIXME should propogate to other servers
     }
