@@ -510,11 +510,11 @@ sub handle_whowas {
 
 # ISON nick nick nick
 sub handle_ison {
-  my($this,$dummy,$targets)=(shift,shift,shift);
+  my($this,$dummy,@targets) = (shift,shift,@_);
   my @ison;
 
-  foreach my $target (split(/\s+/,$targets)) {
-    my $ret = Utils::lookup($target);
+  for(@targets) {
+    my $ret = Utils::lookup($_);
     if(defined($ret) && $ret->isa("User")) {
       push(@ison,$ret->nick);
     }
@@ -524,11 +524,11 @@ sub handle_ison {
 
 # USERHOST nick nick nick
 sub handle_userhost {
-  my($this,$dummy,$targets)=(shift,shift,shift);
+  my($this,$dummy,@targets)=(shift,shift,@_);
   my @results;
 
-  foreach my $target (split(/\s+/,$targets)) {
-    my $ret = Utils::lookupuser($target);
+  for(@targets) {
+    my $ret = Utils::lookupuser($_);
     if(defined $ret) {
       push(@results,$ret->nick."=".(defined($ret->away())?"-":"+").
 	   $ret->username."\@".$ret->host);
