@@ -10,15 +10,26 @@ to appease IO::Socket::SSL. Use the OpenSSL tools to create:
 * client-key.pem
 * client-cert.pem
 
-And toss them into the certs directory underneath where you run
+And toss them into the 'certs' directory underneath where you run
 pircd. Later versions which have more comprehensive SSL support
 will allow you to place the the certificates and keys wherever
 you please and specify the location.
+
+If you need some help with creating those files, consult:
+http://arch.cs.utwente.nl/courses/iwa/hwsw/x509.html
+
+I havn't stopped to consider the security ramifications, but if you
+just want to get things up and running, you can run through those
+instructions just one, and then copy the server cert and key into
+the client cert and key files.
 
 At the moment however, all the SSL support does is:
 
 * Allow you to connect in an encrypted fashion.
 * Indicate which users are connected to the server via SSL in /whois
+* pircd beta two adds a +S channel mode, which prevents anyone from
+  joining the channel who isn't connected via SSL. It doesn't do anything
+  about parties already present on the channel, though.
 
-- Jay Kominek <jay.kominek@colorado.edu>
+- Jay Kominek <jkominek@users.sf.net>
   If all else fails, increase the amperage.
