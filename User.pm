@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Wed Dec  2 21:18:39 1998 by jay.kominek@colorado.edu
+# Revised: Thu Dec 10 22:36:06 1998 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # This program is free software; you can redistribute it and/or modify it
@@ -645,7 +645,24 @@ sub handle_names {
 # STATS
 sub handle_stats {
   my $this = shift;
-
+  my($command,$request,$server) = split(/\s+/,shift,3);
+  $request = substr($request,0,1);
+ SWITCH: {
+    if(uc($request) eq 'O') {
+      my %opers = %{$this->server->getopers()};
+      my $nick;
+      foreach $nick (keys(%opers)) {
+	$this->sendnumeric($this->server,243,"O",$opers{$nick}->{mask},"*",$nick,0,10,undef);
+      }
+      last SWITCH;
+    }
+    if((uc($request) eq 'C')||(uc($request) eq 'N')) {
+      # no network-fu!
+      last SWITCH;
+    }
+  }
+  # TODO
+  $this->sendnumeric($this->server,219,$request,"End of /STATS report.");
 }
 
 # VERSION
@@ -669,6 +686,7 @@ sub handle_time {
 # INFO
 sub handle_info {
   my $this = shift;
+  # TODO
 }
 
 # MOTD
@@ -719,11 +737,13 @@ sub map_children_disp {
 # LINKS
 sub handle_links {
   my $this = shift;
+  # TODO
 }
 
 # TRACE
 sub handle_trace {
   my $this = shift;
+  # TODO
 }
 
 #####################################################################
