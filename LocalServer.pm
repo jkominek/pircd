@@ -2,23 +2,12 @@
 # 
 # LocalServer.pm
 # Created: Sat Sep 26 18:11:12 1998 by jay.kominek@colorado.edu
-# Revised: Sat Feb  6 10:08:58 1999 by jay.kominek@colorado.edu
+# Revised: Fri Feb 12 12:19:08 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
-# This program is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 1, or (at your option) any
-# later version.
-# 
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 675 Mass Ave, Cambridge, MA 02139, USA.
-# 
+# Consult the file 'LICENSE' for the complete terms under which you
+# may use this file.
+#
 #####################################################################
 # Local Server object for The Perl Internet Relay Chat Daemon
 #####################################################################
@@ -28,6 +17,7 @@ use User;
 use Channel;
 use Server;
 use strict;
+use Utils;
 use vars qw(@ISA);
 use UNIVERSAL qw(isa);
 @ISA=qw{Server};
@@ -215,7 +205,7 @@ sub removeuser {
   if(ref($user)) {
     $nick = $user->lcnick();
   } else {
-    $nick = $user;
+    $nick = Utils::irclc($user);
   }
 
   delete($this->{'users'}->{$nick});
