@@ -2,7 +2,7 @@
 # 
 # LocalServer.pm
 # Created: Sat Sep 26 18:11:12 1998 by jay.kominek@colorado.edu
-# Revised: Mon Nov 30 10:57:52 1998 by jay.kominek@colorado.edu
+# Revised: Wed Dec  2 21:54:31 1998 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -168,7 +168,11 @@ sub hops {
 }
 
 sub version {
-  return $Utils::version;
+  return &Utils::version;
+}
+
+sub creation {
+  return time();
 }
 
 # Returns the MOTD of the server as an array of lines.
