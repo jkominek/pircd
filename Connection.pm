@@ -195,7 +195,7 @@ sub sendnumeric {
   if(defined($msg)) {
     $this->senddata(":$fromstr $numeric $destnick ".join(' ',@arguments)." :$msg\r\n");
   } else {
-    $this->senddata(":".join(' ',$fromstr,$numeric,'*',@arguments)."\r\n");
+    $this->senddata(":".join(' ',$fromstr,$numeric,$destnick,@arguments)."\r\n");
   }
 }
 
