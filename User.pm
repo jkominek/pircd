@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Thu Dec  2 07:16:02 1999 by tek@wiw.org
+# Revised: Tue Jan 18 17:59:56 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -559,7 +559,29 @@ sub handle_names {
   }
 
   if($waswildcard) {
-    # FIXME also print list of lusers on no channel
+    my @users = values %{Utils::users()};
+    my @visible;
+    if($this->ismode('g')) {
+      @visible = map { $_->nick } @users;
+    } else {
+      foreach my $user (@users) {
+	if(!$user->ismode('i')) {
+	  push @visible, $user->nick;
+	}
+      }
+    }
+    undef @users; # @users and @visible might be Big. conserve memory asap.
+
+    my @lists;
+    my($index,$count) = (0,0);
+    foreach my $nick (@visible) {
+      if($count>60) { $index++; $count = 0; }
+      push(@{$lists[$index]},$nick);
+    }
+    foreach(0..$index) {
+      $this->sendnumeric($this->server,353,"*","*",join(' ',@{$lists[$_]}));
+    }
+
     $this->sendnumeric($this->server,366,"*","End of /NAMES list.");
   }
 }
