@@ -512,7 +512,7 @@ sub force_join {
   $this->{'users'}->{$user->nick()} = $user;
   $this->{'jointime'}->{$user->nick()} = time;
   $user->{'channels'}->{$this->{name}} = $this;
-  User::multisend(":$$user{nick}!$$user{user}\@$$user{host} JOIN>$$this{name}",
+  User::multisend(":$$user{nick}!$$user{user}\@$$user{host} JOIN>:$$this{name}",
 		  values(%{$this->{'users'}}));
   foreach my $iserver ($Utils::thisserver->children) {
     if($iserver ne $server) {
