@@ -2,7 +2,7 @@
 # 
 # Utils.pm
 # Created: Wed Sep 23 21:56:44 1998 by jay.kominek@colorado.edu
-# Revised: Fri Feb 12 12:18:04 1999 by jay.kominek@colorado.edu
+# Revised: Sun Feb 21 13:51:56 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -30,7 +30,7 @@ my %channels = ();
 my $syslogsetup = 0;
 
 sub version {
-  return "pircd-alpha-nine";
+  return "pircd-alpha-ten";
 }
 
 sub lookup {
