@@ -43,6 +43,8 @@ sub new {
   $this->{'ops'}   = \%opstmp;
   tie my %voicetmp,'Tie::IRCUniqueHash';
   $this->{'voice'} = \%voicetmp;
+  tie my %jointimetmp,'Tie::IRCUniqueHash';
+  $this->{'jointime'} = \%jointimetmp;
 
   bless($this, $class);
   return $this;
@@ -65,7 +67,9 @@ sub names {
 
   my @lists;
   my($index,$count) = (0,0);
-  foreach(keys(%{$this->{'users'}})) {
+  foreach(sort
+	  { $this->{'jointime'}->{$b} <=> $this->{'jointime'}->{$a} }
+	  keys %{$this->{'users'}}) {
     if($count>60) { $index++; $count = 0; }
     my $nick = $this->{'users'}->{$_}->nick;
     if($this->isop($this->{'users'}->{$_})) {
@@ -505,6 +509,7 @@ sub force_join {
 
   Utils::channels()->{$this->{name}} = $this;
   $this->{'users'}->{$user->nick()} = $user;
+  $this->{'jointime'}->{$user->nick()} = time;
   $user->{'channels'}->{$this->{name}} = $this;
   User::multisend(":$$user{nick}!$$user{user}\@$$user{host} JOIN>$$this{name}",
 		  values(%{$this->{'users'}}));
@@ -601,6 +606,10 @@ sub nickchange {
     delete $this->{'voice'}->{$user->{'oldnick'}};
   }
   
+  $this->{'jointime'}->{$user->nick()} =
+    $this->{'jointime'}->{$user->{'oldnick'}};
+  delete($this->{'jointime'}->{$user->{'oldnick'}});
+
   delete($this->{'users'}->{$user->{'oldnick'}});
   $this->{'users'}->{$user->nick()} = $user;
 
@@ -680,6 +689,7 @@ sub notifyofquit {
   delete($chan->{'users'}->{$user->nick()});
   delete($chan->{'ops'}->{$user->nick()});
   delete($chan->{'voice'}->{$user->nick()});
+  delete($chan->{'jointime'}->{$user->nick()});
 
   # if the channel is now empty, it needs to go away too.
   if(0==scalar keys(%{$chan->{'users'}})) {
