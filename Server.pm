@@ -484,11 +484,6 @@ sub name {
   return $this->{'name'};
 }
 
-# Deprecated by the user of Tie::IRCUniqueHash
-sub lcname {
-  return shift;
-}
-
 sub description {
   my $this = shift;
   return $this->{'description'};
