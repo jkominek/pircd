@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Tue Dec 12 18:13:47 2000 by jay.kominek@colorado.edu
+# Revised: Fri Mar  9 12:44:54 2001 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -141,16 +141,28 @@ sub finalize {
   if($this->{nick}) {
     # Since we have a nick stored, that means that we're destined to
     # become a user.
-    foreach my $mask (keys %{$this->server->{'klines'}}) {
+    my $banned = 0;
+    my $reason;
+    foreach my $ref (@{$this->server->{'klines'}}) {
+      my $mask = $ref->[2];
       if($this->{'host'} =~ /$mask/) {
-	my @kline = @{$this->server->{'klines'}->{$mask}};
-	if($this->{'user'} =~ /$kline[0]/) {
-	  $this->sendnumeric($this->server,465,"*** $kline[2]");
-	  $this->senddata("ERROR :Closing Link: ".$this->{'nick'}."[".$this->{'host'}."] by ".$this->server->name." (K-lined)\r\n");
-	  $this->{'socket'}->send($this->{'outbuffer'}->{$this->{'socket'}},0);
-	  return undef;
+	my @kline = @{$ref};
+	if($this->{'user'} =~ /$kline[1]/) {
+	  if($kline[0]) {
+	    $banned = 0;
+	  } else {
+	    $banned = 1;
+	    $reason = $kline[3];
+	  }
 	}
       }
+    }
+
+    if($banned) {
+      $this->sendnumeric($this->server,465,"*** $reason");
+      $this->senddata("ERROR :Closing Link: ".$this->{'nick'}."[".$this->{'host'}."] by ".$this->server->name." (K-lined)\r\n");
+      $this->{'socket'}->send($this->{'outbuffer'}->{$this->{'socket'}},0);
+      return undef;
     }
 
     # Okay, we're safe, keep going.
