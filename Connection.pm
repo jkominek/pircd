@@ -41,7 +41,7 @@ sub new {
 
 my $commands={
     PONG=>sub {
-	my($this,$dummy,$response)=(shift,shift,shift);
+	my($this,$dummy,$response)=@_;
 
 	if($this->{doing_nospoof}>0) {
 	    if($response eq $this->{doing_nospoof}) {
@@ -57,13 +57,12 @@ my $commands={
 	}
     },
     NICK=>sub {
-	my($this,$dummy,$str)=(shift,shift,shift);
+	my($this,$dummy,$str)=@_;
 
 	&donick($this,$dummy,$str);
     },
     USER=>sub {
-	my($this,$dummy,$username,$host,$server,$ircname)=
-	    (shift,shift,shift,shift,shift,shift);
+	my($this,$dummy,$username,$host,$server,$ircname)=@_;
 
 	$this->{user} = "~$username";
 	$this->{ircname}  = $ircname;
@@ -72,9 +71,8 @@ my $commands={
 	}
     },
     SERVER=>sub {
-	my($this,$dummy,$command,$servername,$distance,$timea,$timeb,$proto,
-	   $description)=
-	       (shift,shift,shift,shift,shift,shift,shift,shift,shift);
+	my($this,$dummy,$servername,$distance,$timea,$timeb,$proto,
+	   $description)=@_;
 
 	$this->{servername}  = $servername;
 	$this->{proto}       = $proto;
@@ -85,7 +83,7 @@ my $commands={
 	}
     },
     PASS=>sub {
-	my($this,$dummy,$command,$password)=(shift,shift,shift,shift);
+	my($this,$dummy,$password)=@_;
 	
 	# We don't actually do anything with the password yet
 	$this->{password} = $password;
@@ -98,14 +96,13 @@ my $commands={
 
 # Given a line of user input, process it and take appropriate action
 sub handle {
-    my($this, $line)=(shift,shift);
+    my($this, $line)=@_;
 
     Utils::do_handle($this,$line,$commands);
 }
 
 sub quit {
-  my $this = shift;
-  my $msg  = shift;
+  my($this,$msg)=@_;
   &main::finishclient($this->{'socket'});
 }
 
@@ -208,7 +205,7 @@ sub senddata {
 
 # handle a NICK request
 sub donick {
-  my($this,$dummy,$newnick)=(shift,shift,shift);
+  my($this,$dummy,$newnick)=@_;
   my $timeleft=$this->{'next_nickchange'}-time();
   my $channel;
   
