@@ -252,11 +252,12 @@ sub handle_join {
       # ..then ask to join it, passing on all the keys
       $tmp->join($this,@keys);
     } else {
-      # ..otherwise, complain about their stupidity.
+      # ..create the channel, if it's validly named
       if(($channel =~ /^\#/) || ($channel =~ /^\&/)) {
 	my $chanobj = Channel->new($channel);
 	Utils::channels()->{$chanobj->{name}} = $chanobj;
 	$chanobj->join($this);
+      # ..otherwise, complain about their stupidity.
       } else {
 	$this->sendnumeric($this->server,403,($channel),"No such channel");
       }
@@ -581,17 +582,19 @@ sub handle_names {
       @visible = map { $_->nick } @users;
     } else {
       foreach my $user (@users) {
-	if(!$user->ismode('i')) {
+	if(!$user->ismode('i') && !scalar(keys(%{$user->{'channels'}}))) {
 	  push @visible, $user->nick;
 	}
       }
     }
     undef @users; # @users and @visible might be Big. conserve memory asap.
 
+    return unless (scalar(@visible) > 0);
+
     my @lists;
     my($index,$count) = (0,0);
     foreach my $nick (@visible) {
-      if($count>60) { $index++; $count = 0; }
+      if($count++>60) { $index++; $count = 0; }
       push(@{$lists[$index]},$nick);
     }
     foreach(0..$index) {
@@ -880,7 +883,7 @@ sub handle_kill {
 
   $excuse =~ s/^://;
   if(!$this->ismode('o')) {
-    $this->sendnumeric(this->server,481,"Permission Denied: You're not an IRC operator");
+    $this->sendnumeric($this->server,481,"Permission Denied: You're not an IRC operator");
     return;
   }
 
@@ -1167,7 +1170,7 @@ sub kill {
   foreach $channame (keys(%{$this->{'channels'}})) {
     push @foo, $this->{channels}->{$channame}->notifyofquit($this);
   }
-  multisend(":$$this{nick}!$$this{user}\@$$this{host} QUIT> :Local kill by operator \($excuse\)",@foo);
+  multisend(":$$this{nick}!$$this{user}\@$$this{host} QUIT>:Local kill by operator \($excuse\)",@foo);
   # Tell connected servers that they're gone
   $this->server->removeuser($this);
   # Remove us from the User hash
@@ -1203,7 +1206,7 @@ sub quit {
   foreach $channame (keys(%{$this->{'channels'}})) {
     push @foo, $this->{channels}->{$channame}->notifyofquit($this);
   }
-  multisend(":$$this{nick}!$$this{user}\@$$this{host} QUIT> :$msg",@foo);
+  multisend(":$$this{nick}!$$this{user}\@$$this{host} QUIT>:$msg",@foo);
   # Tell connected servers that they're gone
   $this->server->removeuser($this);
   # Remove us from the User hash

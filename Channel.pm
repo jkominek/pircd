@@ -484,18 +484,20 @@ sub join {
     delete($this->{hasinvitation}->{$user});
   }
 
-  # Test to see if the user needs and invitation
-  if($this->ismode('i') && (!$hasinvitation)) {
-    $user->sendnumeric($user->server,473,$user->nick,$this->{name},"Channel join channel (+i)");
+  # Test to see if the user needs an invitation [and doesn't have
+  # it/isn't godlike]
+  if($this->ismode('i') && (!$hasinvitation) && !$user->ismode('g')) {
+    Connection::sendreply($user, "473 $this->{name} :Cannot join channel (+i)");
     return;
   }
 
-  # If the user is invited, then they can bypass the key, limit, and bans
-  if(!$hasinvitation) {
+  # If the user is invited, [or godlike] then they can bypass the key,
+  # limit, and bans
+  if(!$hasinvitation && !$user->ismode('g')) {
     # Test to see if the user knows the channel key
     if($this->ismode('k')) {
       unless(grep {/^$this->{key}$/} @keys) {
-	$user->senddata(":".$user->server->{name}." 475 ".$user->nick." ".$this->{name}." :Cannot join channel (+k)\r\n");
+	Connection::sendreply($user, "475 $this->{name} :Cannot join channel (+k)");
 	return;
       }
     }
@@ -503,7 +505,7 @@ sub join {
     # Test to see if the channel is over the current population limit.
     if(($this->ismode('l')) &&
        ((1+scalar keys(%{$this->{'users'}}))>$this->{limit})) {
-      $user->senddata(":".$user->server->{name}." 471 ".$user->nick." ".$this->{name}." :Cannot join channel (+l)\r\n");
+      Connection::sendreply($user, "471 $this->{name} :Cannot join channel (+l)");
       return;
     }
 
