@@ -17,7 +17,7 @@ package Utils;
 #use User;
 #use Server;
 #use Channel;
-use Sys::Syslog;
+use Sys::Syslog ();
 use UNIVERSAL qw(isa);
 use strict;
 use vars qw($VERSION %params);
@@ -97,7 +97,7 @@ sub syslog {
 
   if(!$syslogsetup) {
     if($params{syslog}) {
-      openlog('pircd','ndelay,pid','daemon');
+      Sys::Syslog::openlog('pircd','ndelay,pid','daemon');
     } elsif($params{logfile}) {
       open(STDERR, ">>$params{logfile}") 
 	or die "Unable to open $params{logfile}: $!";
@@ -106,7 +106,7 @@ sub syslog {
   }
 
   if($params{syslog}) {
-    syslog(@_);
+    Sys::Syslog::syslog(@_);
   } else {
     print STDERR "$data: ",shift,"\n";
   }

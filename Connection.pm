@@ -201,6 +201,9 @@ sub sendnumeric {
 # each argument is a string, which is sent as a reply line. if the string
 # starts with a colon, that is used as the "from", otherwise the server name
 # is used. the rest if the string is a code, then a space, then data.
+# if the code contains a ">", then whatever follows the > is used as the
+# destination nick. otherwise, the destination nick will automatically be set
+# based on the destination object.
 # sendreply will insert the destination nick between the code and the data.
 # if part of the data is a multi-word argument, the colon must be explicitly
 # included; sendreply won't magically add one in.
@@ -216,8 +219,12 @@ sub sendreply {
     } else {
       $fromstr=":${$$this{server}}{name}";
     }
-    ($repcode,$data)=$reply=~/(\S*)\s+(.*)/;
-    $this->senddata("$fromstr $repcode $destnick $data\r\n");
+    ($repcode,$data)=$reply=~/(\S*)(.*)/;
+    if($repcode=~/>/) {
+#print "squeezing oj $repcode\n";
+      ($repcode,$destnick)=$repcode=~/([^>]+)>(.*)/;
+    }
+    $this->senddata("$fromstr $repcode $destnick$data\r\n");
   }
 }
 

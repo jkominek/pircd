@@ -555,63 +555,41 @@ sub force_join {
 
 # This one is called when a user leaves
 sub part {
-  my $this = shift;
-  my $user = shift;
-  my $server = shift;
-
-  delete($user->{'channels'}->{$this->{name}});
-  foreach(keys(%{$this->{'users'}})) {
-    if($this->{'users'}->{$_}->islocal()) {
-      $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." PART :".$this->{name}."\r\n");
-    }
-  }
-  delete($this->{'users'}->{$user->nick()});
-  delete($this->{'ops'}->{$user->nick()});
-  delete($this->{'voice'}->{$user->nick()});
-
-  if(0==scalar keys(%{$this->{'users'}})) {
-    delete(Utils::channels()->{$this->{name}});
-  }
+  my($this,$user,$server)=@_;
+  my @foo;
 
   foreach my $iserver ($Utils::thisserver->children) {
     if($iserver ne $server) {
       $iserver->part($user,$this);
     }
   }
+
+  @foo=$this->notifyofquit($user);
+  User::multisend(":$$user{nick}!$$user{user}\@$$user{host} PART>$$this{name}",
+		  @foo,$user);
 }
 
 sub kick {
-  my $this   = shift;
-  my $user   = shift;
-  my $target = shift;
-  my $excuse = shift;
+  my($this,$user,$target,$excuse)=@_;
+  my @foo;
+  my $sap = Utils::lookup($target);
 
-  if($this->isop($user) || $user->ismode('g')) {
-    my $sap = Utils::lookup($target);
-    if((!defined($sap)) || (!$sap->isa("User"))) {
-      $user->sendnumeric($user->server,401,$target,"No such nick");
-      return;
-    }
-    delete($sap->{channels}->{$this->{name}});
-    foreach(keys(%{$this->{'users'}})) {
-      if($this->{'users'}->{$_}->islocal()) {
-
-	$user->nick;
-
-	$sap->nick;
-
-	$this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." KICK ".$this->{name}." ".$sap->nick." :$excuse\r\n");
-      }
-    }
-    delete($this->{'users'}->{$sap->nick()});
-    delete($this->{'ops'}->{$sap->nick()});
-    delete($this->{'voice'}->{$sap->nick()});
-    if(0==scalar keys(%{$this->{'users'}})) {
-      delete(Utils::channels()->{$this->{name}});
-    }
-  } else {
-    $user->sendnumeric($user->server,482,$this->{name},"You are not a channel operator");
+  if((!defined($sap)) || (!$sap->isa("User"))) {
+    $user->sendnumeric($user->server,401,$target,"No such nick");
+    return;
   }
+
+  if(!$this->isop($user) && !$user->ismode('g')) {
+    Connection::sendreply($user,
+			  "482>$$this{name} You are not a channel operator");
+    return;
+  }
+
+  # don't we have to communicate this to other servers somehow ???
+
+  @foo=$this->notifyofquit($sap);
+  User::multisend(":$$user{nick}!$$user{user}\@$$user{host}"
+		  ." KICK>$$this{name} $$sap{nick} :$excuse",@foo,$sap);
 }
 
 sub invite {
@@ -707,22 +685,33 @@ sub notice {
   # We need something to disseminate the message to other servers
 }
 
-# This is to tell us that a user has quit
+# This function does two things. First, it removes a user from a channel.
+# Second, it figures out what other users on the channel should be informed,
+# but it does not inform them. It returns a list of the other users on this
+# server that should be informed.
+# NB the user who was removed is *not* in the list returned.
 sub notifyofquit {
-  my $this = shift;
-  my $user = shift;
-  my $msg  = shift;
+  my($chan,$user)=@_;
+  my @inform;
 
-  delete($user->{'channels'}->{$this->{name}});
-  delete($this->{'users'}->{$user->nick()});
-  delete($this->{'voice'}->{$user->nick()});
-  delete($this->{'ops'}->{$user->nick()});
+  # make the user go away
+  delete($user->{'channels'}->{$chan->{'name'}});
+  delete($chan->{'users'}->{$user->nick()});
+  delete($chan->{'ops'}->{$user->nick()});
+  delete($chan->{'voice'}->{$user->nick()});
 
-  if(0==scalar keys(%{$this->{'users'}})) {
-    delete(Utils::channels()->{$this->{name}});
+  # if the channel is now empty, it needs to go away too.
+  if(0==scalar keys(%{$chan->{'users'}})) {
+    delete(Utils::channels()->{$chan->{name}});
+#    return (undef);
   }
 
-  return $this->{'users'};
+  # now find out who gets to know about it
+  foreach(keys(%{$chan->{'users'}})) {
+    push(@inform,$chan->{'users'}->{$_}) if($chan->{'users'}->{$_}->islocal());
+  }
+
+  return @inform;
 }
 
 1;
