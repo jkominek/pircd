@@ -1147,10 +1147,10 @@ sub kill {
   my @foo;
 
   my $targetaddr = $this->{'host'};
-  my $outbuffer = "$fromnick\!~$fromaddr KILL " . $this->nick() . " :$targetaddr\!$fromnick \($excuse\)\n";
+  my $outbuffer = ":$fromnick\!~$fromaddr KILL " . $this->nick() . " :$targetaddr\!$fromnick \($excuse\)\n";
   $this->{'socket'}->send($outbuffer, 0);
 
-  my $outbuffer = "ERROR :Closing Link: $this->{'nick'}\['$this->{'host'}\] by " . $fromnick . "\(Local kill by " . $fromnick . "\(" . $excuse . "\)\)\n";
+  my $outbuffer = "ERROR :Closing Link: $this->{'nick'}\[$this->{'host'}\] by " . $fromnick . " \(Local kill by " . $fromnick . "\(" . $excuse . "\)\)\n";
   $this->{'socket'}->send($outbuffer, 0);
 
   # Remove them from all appropriate structures, etc
