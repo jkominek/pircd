@@ -131,7 +131,7 @@ for(;;) {
       # Activity on the listening socket means we have a new
       # client attempting to connect.
       # Get ahold of the new socket, assign it to all the whatnot, etc
-      $client = $client->accept;
+      $client = $client->accept or next;
       $select->add($client);
       &setnonblocking($client);
       $connections{$client} = Connection->new($client, \%outbuffer,

@@ -90,7 +90,7 @@ sub isvalidchannelmode {
   if(grep {/$mode/} ("b","i","k",
 		     "l","m","n",
 		     "o","s","t",
-		     "v")) {
+		     "v", "S")) {
     return 1;
   } else {
     return 0;
@@ -461,6 +461,13 @@ sub join {
     if(($this->ismode('l')) &&
        ((1+scalar keys(%{$this->{'users'}}))>$this->{limit})) {
       Connection::sendreply($user, "471 $this->{name} :Cannot join channel (+l)");
+      return;
+    }
+
+    # If we are an encrypted-only channel and the user is not connected
+    # via SSL, we don't allow them to join...
+    if($this->ismode('S') && !$user->ssl()) {
+      Connection::sendreply($user, "479 $this->{name} :Cannot join channel (+S)");
       return;
     }
 
