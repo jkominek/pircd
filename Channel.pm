@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Fri Feb 12 12:18:37 1999 by jay.kominek@colorado.edu
+# Revised: Sun Feb 21 13:31:15 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -126,9 +126,10 @@ sub ismode {
 #  returns 0.
 sub setmode {
   my $this = shift;
+  my $user = shift;
   my $mode = shift;
   if(!&isvalidchannelmode($mode)) {
-    $this->senddata(":".$this->server->name." 501 ".$this->nick." :Unknown mode flag \'$mode\'\r\n");
+    $user->senddata(":".$this->server->name." 501 ".$this->nick." :Unknown mode flag \'$mode\'\r\n");
   }
   if(!$this->{modes}->{$mode}) {
     $this->{modes}->{$mode} = 1;
@@ -141,9 +142,10 @@ sub setmode {
 # unsetmode does the opposite of setmode.
 sub unsetmode {
   my $this = shift;
+  my $user = shift;
   my $mode = shift;
   if(!&isvalidchannelmode($mode)) {
-    $this->senddata(":".$this->server->name." 501 ".$this->nick." :Unknown mode flag \'$mode\'\r\n");
+    $user->senddata(":".$this->server->name." 501 ".$this->nick." :Unknown mode flag \'$mode\'\r\n");
     return 0;
   }
   if($this->{modes}->{$mode}) {
@@ -210,8 +212,19 @@ sub isop {
 sub setop {
   my $this   = shift;
   my $user   = shift;
-  if(!defined($this->{ops}->{$user->lcnick()})) {
-    $this->{ops}->{$user->lcnick()} = $user;
+  my $target = shift;
+  my $ret    = Utils::lookup($target);
+  if(!(ref($ret) && isa($ret,"User"))) {
+    $user->sendnumeric($user->server,401,$target,"No such nick");
+    return 0;
+  }
+  if(!defined($this->{users}->{$ret->lcnick()})) {
+    $user->sendnumeric($user->server,441,$target,$this->name,
+		       "They aren't on the channel");
+    return 0;
+  }
+  if(!defined($this->{ops}->{$ret->lcnick()})) {
+    $this->{ops}->{$ret->lcnick()} = $user;
     return 1;
   } else {
     return 0;
@@ -221,8 +234,19 @@ sub setop {
 sub unsetop {
   my $this   = shift;
   my $user   = shift;
-  if(defined($this->{ops}->{$user->lcnick()})) {
-    delete($this->{ops}->{$user->lcnick()});
+  my $target = shift;
+  my $ret    = Utils::lookup($target);
+  if(!(ref($ret) && isa($ret,"User"))) {
+    $user->sendnumeric($user->server,401,$target,"No such nick");
+    return 0;
+  }
+  if(!defined($this->{users}->{$ret->lcnick()})) {
+    $user->sendnumeric($user->server,441,$target,$this->name,
+		       "They aren't on the channel");
+    return 0;
+  }
+  if(defined($this->{ops}->{$ret->lcnick()})) {
+    delete($this->{ops}->{$ret->lcnick()});
     return 1;
   } else {
     return 0;
@@ -244,8 +268,19 @@ sub hasvoice {
 sub setvoice {
   my $this   = shift;
   my $user   = shift;
-  if(!defined($this->{voice}->{$user->lcnick()})) {
-    $this->{voice}->{$user->lcnick()} = $user;
+  my $target = shift;
+  my $ret    = Utils::lookup($target);
+  if(!(ref($ret) && isa($ret,"User"))) {
+    $user->sendnumeric($user->server,401,$target,"No such nick");
+    return 0;
+  }
+  if(!defined($this->{users}->{$ret->lcnick()})) {
+    $user->sendnumeric($user->server,441,$target,$this->name,
+		       "They aren't on the channel");
+    return 0;
+  }
+  if(!defined($this->{voice}->{$ret->lcnick()})) {
+    $this->{voice}->{$ret->lcnick()} = $user;
     return 1;
   } else {
     return 0;
@@ -255,8 +290,19 @@ sub setvoice {
 sub unsetvoice {
   my $this   = shift;
   my $user   = shift;
-  if(defined($this->{voice}->{$user->lcnick()})) {
-    delete($this->{voice}->{$user->lcnick()});
+  my $target = shift;
+  my $ret    = Utils::lookup($target);
+  if(!(ref($ret) && isa($ret,"User"))) {
+    $user->sendnumeric($user->server,401,$target,"No such nick");
+    return 0;
+  }
+  if(!defined($this->{users}->{$ret->lcnick()})) {
+    $user->sendnumeric($user->server,441,$target,$this->name,
+		       "They aren't on the channel");
+    return 0;
+  }
+  if(defined($this->{voice}->{$ret->lcnick()})) {
+    delete($this->{voice}->{$ret->lcnick()});
     return 1;
   } else {
     return 0;
@@ -335,7 +381,7 @@ sub mode {
 	      push(@accomplishedset,$_);
 	      push(@accomplishedargs,$arg);
 	    }
-	  } elsif($this->setmode($_)) {
+	  } elsif($this->setmode($user,$_)) {
 	    push(@accomplishedset,$_);
 	  }
 	} else {
@@ -363,7 +409,7 @@ sub mode {
 	      push(@accomplishedunset,$_);
 	      push(@accomplishedargs,$arg);
 	    }
-	  } elsif($this->unsetmode($_)) {
+	  } elsif($this->unsetmode($user,$_)) {
 	    push(@accomplishedunset,$_);
 	  }
 	}
@@ -478,7 +524,7 @@ sub join {
   $user->{channels}->{$this->lcname()} = $this;
   $this->{'users'}->{$user->lcnick()}  = $user;
   if(1==scalar keys(%{$this->{'users'}})) {
-    $this->setop($user);
+    $this->setop($user,$user->nick());
   }
   foreach(keys(%{$this->{'users'}})) {
     if($this->{'users'}->{$_}->islocal()) {
