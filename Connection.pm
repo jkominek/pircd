@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Thu Mar 23 16:56:38 2000 by jay.kominek@colorado.edu
+# Revised: Tue Dec 12 18:13:47 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -29,8 +29,8 @@ sub new {
   $this->{'server'}    = shift;
   $this->{'connected'} = $this->{last_active} = time();
 
-#  print $this->{'socket'};
-#  print "\n";
+  $this->{'ssl'} = $this->{'socket'}->isa("IO::Socket::SSL");
+
   my($port,$iaddr)     = sockaddr_in(getpeername($this->{'socket'}));
   $this->{'host'}      = gethostbyaddr($iaddr,AF_INET) || inet_ntoa($iaddr);
   $this->{'host_ip'}   = inet_ntoa($iaddr);
