@@ -139,6 +139,7 @@ sub unsetmode {
 #  hash{key} is a an array, the first item of which contains the name
 #  of the person who set the ban, and the second item containing the
 #  time the ban was set.
+# XXX since when can a hash value be an array?
 # setban takes a mask, and if it is not already present, adds it to
 #  the list of bans on the channel.
 sub setban {
@@ -284,14 +285,15 @@ sub unsetvoice {
 # DATA MANIPULATING SUBROUTINES
 ###############################
 
+# handle a MODE command from a user - can be mode check or mode change
 sub mode {
-  my $this = shift;
-  my $user = shift;
-  my $modestr = shift;
-  my @arguments = @_;
+  my($this,$user,$modestr,@arguments)=@_;
   my @modebytes = split(//,$modestr);
   my(@accomplishedset,@accomplishedunset,@accomplishedargs);
+  my $state = 1;
+  my $arg;
 
+  # if it's a mode check, send the nf0z
   if(!defined($modestr)) {
     my(@modes,@args);
     foreach(keys(%{$this->{'modes'}})) {
@@ -317,111 +319,78 @@ sub mode {
     return;
   }
 
-  if($this->isop($user) || $user->ismode('g')) {
-    my $state = 1;
-    foreach(@modebytes) {
-      if($_ eq "+") {
-	$state = 1;
-      } elsif($_ eq "-") {
-	$state = 0;
+  if(!$this->isop($user) && !$user->ismode('g')) {
+    $user->sendreply("482 $$this{name} :You're not a channel operator.");
+    return;
+  }
+
+  foreach(@modebytes) {
+    if($_ eq "+") {
+      $state = 1;
+    } elsif($_ eq "-") {
+      $state = 0;
+    } else {
+      if($_=~/[bovlk]/ &&!($_ eq 'l' && !$state)) {
+	$arg=shift(@arguments);
+	next if(!defined($arg));
       } else {
+	push(@accomplishedset,$_) if($state && $this->setmode($user,$_));
+	push(@accomplishedunset,$_) if(!$state && $this->unsetmode($user,$_));
+	next;
+      }
+      
+      if($_ eq "b") {
+	$arg=$this->setban($user,$arg) if($state);
+	$arg=$this->unsetban($user,$arg) if(!$state);
+      } elsif($_ eq "o") {
+	$arg=$this->setop($user,$arg) if($state);
+	$arg=$this->unsetop($user,$arg) if(!$state);
+      } elsif($_ eq "v") {
+	$arg=$this->setvoice($user,$arg) if($state);
+	$arg=$this->unsetvoice($user,$arg) if(!$state);
+      } elsif($_ eq "l") {
+	$this->setmode($user,'l');
+	$this->{'limit'} = $arg;
+      } elsif($_ eq "k") {
 	if($state) {
-	  if($_ eq "b") {
-	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($arg=$this->setban($user,$arg))) {
-	      push(@accomplishedset,$_);
-	      push(@accomplishedargs,$arg);
-	    }
-	  } elsif($_ eq "o") {
-	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($arg=$this->setop($user,$arg))) {
-	      push(@accomplishedset,$_);
-	      push(@accomplishedargs,$arg);
-	    }
-	  } elsif($_ eq "v") {
-	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($arg=$this->setvoice($user,$arg))) {
-	      push(@accomplishedset,$_);
-	      push(@accomplishedargs,$arg);
-	    }
-	  } elsif($_ eq "l") {
-	    my $arg = shift(@arguments);
-	    if(defined($arg)) {
-	      $this->setmode($user,'l');
-	      $this->{'limit'} = $arg;
-	      push(@accomplishedset,$_);
-	      push(@accomplishedargs,$arg);
-	    }
-	  } elsif($_ eq "k") {
-	    my $arg = shift(@arguments);
-	    if(defined($arg)) {
-	      if($this->ismode('k')) {
-		$user->senddata(":".$user->server->{name}." 467 ".$user->nick.
-				" ".$this->{name}.
-				" :Channel key already set\r\n");
-	      } else {
-		$this->setmode($user,'k');
-		$this->{'key'} = $arg;
-		push(@accomplishedset,$_);
-		push(@accomplishedargs,$arg);
-	      }
-	    }
-	  } elsif($this->setmode($user,$_)) {
-	    push(@accomplishedset,$_);
+	  if($this->ismode('k')) {
+	    $user->sendreply("467 $$this{name} :Channel key already set");
+	    undef $arg;
+	  } else {
+	    $this->setmode($user,'k');
+	    $this->{'key'} = $arg;
 	  }
 	} else {
-	  if($_ eq "b") {
-	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($arg=$this->unsetban($user,$arg))) {
-	      push(@accomplishedunset,$_);
-	      push(@accomplishedargs,$arg);
-	    }
-	  } elsif($_ eq "o") {
-	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($arg=$this->unsetop($user,$arg))) {
-	      push(@accomplishedunset,$_);
-	      push(@accomplishedargs,$arg);
-	    }
-	  } elsif($_ eq "v") {
-	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($arg=$this->unsetvoice($user,$arg))) {
-	      push(@accomplishedunset,$_);
-	      push(@accomplishedargs,$arg);
-	    }
-	  } elsif($_ eq "k") {
-	    my $arg = shift(@arguments);
-	    if(($arg eq $this->{key}) && ($this->unsetmode($user, "k"))) {
-	      push(@accomplishedunset,$_);
-	      push(@accomplishedargs,$arg);
-	    }
-	  } elsif($this->unsetmode($user,$_)) {
-	    push(@accomplishedunset,$_);
+	  if($arg ne $this->{key} || !($this->unsetmode($user, "k"))) {
+	    undef $arg;
 	  }
 	}
       }
-    }
-    if($#accomplishedset>=0 || $#accomplishedunset>=0) {
-      my $changestr;
-      if($#accomplishedset>=0) {
-	$changestr = "+".join('',@accomplishedset);
-      }
-      if($#accomplishedunset>=0) {
-	$changestr = $changestr."-".join('',@accomplishedunset);
-      }
-      if($#accomplishedargs>=0) {
-	$changestr = $changestr.join(' ','',@accomplishedargs);
-      }
-      foreach(values(%{$this->{'users'}})) {
-	if($_->islocal()) {
-	  $_->senddata(":".$user->nick."!".$user->username."\@".$user->host." MODE ".$this->{name}." $changestr\r\n");
-	}
-      }
-      foreach my $server ($user->server->children) {
-	$server->mode($user,$this,$changestr);
+      if($arg) {
+	push(@accomplishedset,$_) if($state);
+	push(@accomplishedunset,$_) if(!$state);
+	push(@accomplishedargs,$arg);
       }
     }
-  } else {
-    $user->senddata(":".$user->server->{name}." 482 ".$user->nick." ".$this->{name}." You're not a channel operator.\r\n");
+  }
+
+  if($#accomplishedset>=0 || $#accomplishedunset>=0) {
+    my $changestr;
+    if($#accomplishedset>=0) {
+      $changestr = "+".join('',@accomplishedset);
+    }
+    if($#accomplishedunset>=0) {
+      $changestr .= "-".join('',@accomplishedunset);
+    }
+    if($#accomplishedargs>=0) {
+      $changestr .= join(' ','',@accomplishedargs);
+    }
+    User::multisend(":$$user{nick}!$$user{user}\@$$user{host}".
+		    " MODE>$$this{name} $changestr",
+		    values(%{$this->{'users'}}));
+    foreach my $server ($user->server->children) {
+      $server->mode($user,$this,$changestr);
+    }
   }
 }
 
@@ -512,24 +481,17 @@ sub join {
     # Test for bans, here
   }
 
-  $user->{'channels'}->{$this->{name}} = $this;
-  $this->{'users'}->{$user->nick()}  = $user;
+  #do the actual join
+  $this->force_join($user,$user->server);
+
   if(1==scalar keys(%{$this->{'users'}})) {
     $this->setop($user,$user->nick());
-  }
-  foreach(keys(%{$this->{'users'}})) {
-    if($this->{'users'}->{$_}->islocal()) {
-      $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." JOIN :".$this->{name}."\r\n");
-    }
   }
   if(defined($this->{'topic'})) {
     $this->topic($user);
   }
   $this->names($user);
   $user->sendnumeric($user->server,366,$user->nick,$this->{name},"End of /NAMES list.");
-  foreach my $server ($user->server->children) {
-    $server->join($user,$this);
-  }
 }
 
 # Called by (servers) to forcibly add a user, does no checking.
@@ -543,12 +505,10 @@ sub force_join {
 
   Utils::channels()->{$this->{name}} = $this;
   $this->{'users'}->{$user->nick()} = $user;
-  foreach(keys(%{$this->{'users'}})) {
-    if($this->{'users'}->{$_}->islocal()) {
-      $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." JOIN :".$this->{name}."\r\n");
-    }
-  }
-  foreach my $iserver ($Utils::thiserver->children) {
+  $user->{'channels'}->{$this->{name}} = $this;
+  User::multisend(":$$user{nick}!$$user{user}\@$$user{host} JOIN>$$this{name}",
+		  values(%{$this->{'users'}}));
+  foreach my $iserver ($Utils::thisserver->children) {
     if($iserver ne $server) {
       $iserver->join($user,$this);
     }
