@@ -2,7 +2,7 @@
 # 
 # Utils.pm
 # Created: Wed Sep 23 21:56:44 1998 by jay.kominek@colorado.edu
-# Revised: Mon Jan 18 10:47:49 1999 by jay.kominek@colorado.edu
+# Revised: Sun Feb  7 23:02:52 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # This program is free software; you can redistribute it and/or modify it
@@ -41,7 +41,7 @@ my %channels = ();
 my $syslogsetup = 0;
 
 sub version {
-  return "pircd-alpha-eight";
+  return "pircd-alpha-nine";
 }
 
 sub lookup {
