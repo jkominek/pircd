@@ -24,6 +24,7 @@ use UNIVERSAL qw(isa);
 use Tie::IRCUniqueHash;
 
 my $commands = {'PONG'    => sub { },
+		'PING'    => \&handle_ping,
 		'PRIVMSG' => \&handle_privmsg,
 		'NOTICE'  => \&handle_notice,
 		'JOIN'    => \&handle_join,
@@ -733,6 +734,19 @@ sub handle_trace {
   # TODO
 }
 
+# PING
+sub handle_ping {
+  my $this = shift;
+  print "ping: @_\n";
+  my ($ping,$fill,$server) = @_;
+  my $servername = $this->server->name;
+  if($server eq $servername) {
+      $this->senddata(":$servername PONG $servername :$fill\r\n");
+  } else {
+      # we should probably forward it
+  }
+}
+
 # HELP
 sub handle_help {
   my $this = shift;
@@ -1210,7 +1224,7 @@ sub kill {
   foreach my $channame (keys(%{$this->{'channels'}})) {
     push @foo, $this->{channels}->{$channame}->notifyofquit($this);
   }
-  multisend(":$$this{nick}!$$this{user}\@$$this{host} QUIT>:Local kill by operator \($excuse\)",@foo);
+  multisend(":$$this{'nick'}!$$this{'user'}\@$$this{'host'} QUIT>:Local kill by operator \($excuse\)",@foo);
   # Tell connected servers that they're gone
   $this->server->removeuser($this);
   # Remove us from the User hash
@@ -1226,12 +1240,12 @@ sub quit {
   my($this,$msg)=@_;
   my @foo;
 
-  unshift @Utils::nickhistory, { nick => $this->nick,
-				 username => $this->username,
-				 host => $this->host,
-				 ircname => $this->ircname,
-				 server => $this->server->name,
-				 time => time };
+  unshift @Utils::nickhistory, { 'nick' => $this->nick,
+				 'username' => $this->username,
+				 'host' => $this->host,
+				 'ircname' => $this->ircname,
+				 'server' => $this->server->name,
+				 'time' => time };
 
   # Remove them from all appropriate structures, etc
   # and announce it to local channels
@@ -1245,7 +1259,7 @@ sub quit {
   foreach my $channame (keys(%{$this->{'channels'}})) {
     push @foo, $this->{channels}->{$channame}->notifyofquit($this);
   }
-  multisend(":$$this{nick}!$$this{user}\@$$this{host} QUIT>:$msg",@foo);
+  multisend(":$$this{'nick'}!$$this{'user'}\@$$this{'host'} QUIT>:$msg",@foo);
   # Tell connected servers that they're gone
   $this->server->removeuser($this);
   # Remove us from the User hash
