@@ -2,22 +2,11 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Mon Feb  8 23:40:16 1999 by jay.kominek@colorado.edu
+# Revised: Fri Feb 12 12:17:32 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
-# This program is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 1, or (at your option) any
-# later version.
-# 
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-#  
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 675 Mass Ave, Cambridge, MA 02139, USA.
+# Consult the file 'LICENSE' for the complete terms under which you
+# may use this file.
 #
 #####################################################################
 # User object for The Perl Internet Relay Chat Daemon
@@ -51,18 +40,22 @@ sub new {
   $this->{'host'}        = $connection->{'host'};
   $this->{'ircname'}     = $connection->{'ircname'};
   $this->{'server'}      = $connection->{'server'};
-  $this->{'lookup'}      = $connection->{'lookup'};
   $this->{'connected'}   = $connection->{'connected'};
   $this->{'last_active'} = time();
   $this->{'last_nickchange'} = 0;
+  $this->{'modes'}       = { };
 
   bless($this, $class);
+  $this->server->adduser($this);
   if(defined($connection->{'socket'})) {
     $this->{'socket'}    = $connection->{'socket'};
     $this->{'outbuffer'} = $connection->{'outbuffer'};
     $this->setupaslocal();
+    my $server;
+    foreach $server ($this->server->children) {
+      $server->nick($this);
+    }
   }
-  $this->{'server'}->adduser($this);
   return $this;
 }
 
@@ -192,6 +185,9 @@ sub handle_pong {
   # what would that be? Conduct a survey as to how different
   # clients respond?
 }
+
+#####################################################################
+# One-to-One, One-to-Many communication
 
 # PRIVMSG target :message
 # Where target is either a user or a channel
@@ -968,6 +964,10 @@ sub handle_quit {
   my $this = shift;
   my($command,$msg) = split(/\s+/,shift,2);
   $msg =~ s/^://;
+  my $server;
+  foreach $server ($this->server->children) {
+    $server->uquit($this,$msg);
+  }
   $this->quit($msg);
 }
 
@@ -1179,8 +1179,7 @@ sub quit {
   my $msg  = shift;
   my $channame;
   # Remove them from all appropriate structures, etc
-   # This is mainly handled when its found that their
-   # socket is no longer valid.
+  # and announce it to local channels
   foreach $channame (keys(%{$this->{hasinvitation}})) {
     my $channel = Utils::lookupchannel($channame);
     if(ref($channel) && isa($channel,"Channel")) {
@@ -1192,9 +1191,11 @@ sub quit {
     $this->{channels}->{$_}->notifyofquit($this,$msg);
   }
   # Tell connected servers that they're gone
-  $this->{'server'}->removeuser($this);
+  $this->server->removeuser($this);
   # Disconnect them
-  &main::finishclient($this->{'socket'});
+  if($this->islocal()) {
+    &main::finishclient($this->{'socket'});
+  }
 }
 
 #####################################################################
