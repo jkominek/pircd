@@ -2,7 +2,7 @@
 # 
 # Utils.pm
 # Created: Wed Sep 23 21:56:44 1998 by jay.kominek@colorado.edu
-# Revised: Wed Nov 22 11:05:06 2000 by jay.kominek@colorado.edu
+# Revised: Wed Jun  5 13:01:40 2002 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -189,10 +189,10 @@ sub do_handle {
 sub validnick {
     my $str=shift;
 
-    return undef if(length($str)<1 || length($str)>30);
+    return undef if(length($str)<1 || length($str)>32);
 
     # valid characters given in rfc1459 2.3.1
-    return undef if($str=~/[^A-Za-z0-9-\[\]\\\`\^\{\}]/);
+    return undef if($str=~/[^A-Za-z0-9-\[\]\\\`\^\{\}\_]/);
 
     return 1;
 }
