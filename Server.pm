@@ -2,7 +2,7 @@
 # 
 # Server.pm
 # Created: Tue Sep 15 13:55:23 1998 by jay.kominek@colorado.edu
-# Revised: Wed Jun 30 14:47:20 1999 by jay.kominek@colorado.edu
+# Revised: Wed Nov 22 11:03:05 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -188,7 +188,7 @@ sub handle {
       &{$commands->{$command}}($this,$line);
     } else {
       if($line =~ /[\w\d\s]/) {
-	print "Received unknown command string \"$line\" from ".$this->name."\n";
+	Utils::syslog('notice', "Received unknown command string \"$line\" from ".$this->name);
       }
     }
   }
@@ -290,7 +290,7 @@ sub handle_quit {
   if(ref($user) && $user->isa("User")) {
     $user->quit($excuse);
   } else {
-    print "attempted to quit user who doesn't exist to us.\n";
+    Utils::syslog('notice', "Attempted to quit user who doesn't exist to us.");
     # woo! network desync, getting quits from users we don't know about
   }
 }
@@ -571,7 +571,7 @@ sub removeuser {
     $nick = $user;
   }
 
-  print "server ".$this->name." is being requested to remove user $nick\n";
+  Utils::syslog('notice', "server ".$this->name." is being requested to remove user $nick");
 
   delete($this->{'users'}->{$nick});
 }
