@@ -2,7 +2,7 @@
 # 
 # Utils.pm
 # Created: Wed Sep 23 21:56:44 1998 by jay.kominek@colorado.edu
-# Revised: Thu Jan 20 21:29:11 2000 by jay.kominek@colorado.edu
+# Revised: Thu Jan 27 13:35:54 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -70,8 +70,20 @@ sub lookup {
 # looking for.
 sub lookupuser {
   my $name = shift;
+  my $dochase = shift;
   chomp $name;
-  return $users{$name};
+  my $user = $users{$name};
+  if($dochase && !defined($user)) {
+    my $irclctarget = irclc($name);
+    for(my $i=0;$i<=$#Utils::nickhistory;$i++) {
+      last if (time-$Utils::nickhistory[$i]->{'time'}>15);
+      if($irclctarget eq irclc($Utils::nickhistory[$i]->{'nick'})) {
+	$user = $users{$Utils::nickhistory[$i]->{'newnick'}};
+	last;
+      }
+    }
+  }
+  return $user;
 }
 
 # This only looks up channels
