@@ -2,7 +2,7 @@
 # 
 # LocalServer.pm
 # Created: Sat Sep 26 18:11:12 1998 by jay.kominek@colorado.edu
-# Revised: Sat Aug 19 23:10:44 2000 by jay.kominek@colorado.edu
+# Revised: Tue Dec 12 19:37:32 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -111,6 +111,17 @@ sub loadconffile {
       $mask =~ s/\*/\.\*/g;
       $this->{'opers'}->{ $nick }->{'mask'} = $mask;
       $this->{'opers'}->{ $nick }->{'password'} = $password;
+      next CONFPARSE;
+    }
+    # Port line
+    if($line =~ /^P:([^:]+):([^:]+)$/) {
+      if($2) {
+	# SSL socket
+	push @{ $this->{'sslports'} }, $1;
+      } else {
+	# Normal socket
+	push @{ $this->{'ports'} }, $1;
+      }
       next CONFPARSE;
     }
     # Kill Line
