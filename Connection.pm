@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Sun Feb 21 20:36:31 1999 by jay.kominek@colorado.edu
+# Revised: Wed May 26 22:36:37 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -161,6 +161,19 @@ sub finalize {
   if($this->{nick}) {
     # Since we have a nick stored, that means that we're destined to
     # become a user.
+    foreach my $mask (keys %{$this->server->{'klines'}}) {
+      if($this->{'host'} =~ /$mask/) {
+	my @kline = @{$this->server->{'klines'}->{$mask}};
+	if($this->{'user'} =~ /$kline[0]/) {
+	  $this->sendnumeric($this->server,465,"*** $kline[2]");
+	  $this->senddata("ERROR :Closing Link: ".$this->{'nick'}."[".$this->{'host'}."] by ".$this->server->name." (K-lined)\r\n");
+	  $this->{'socket'}->send($this->{'outbuffer'}->{$this->{'socket'}},0);
+	  return undef;
+	}
+      }
+    }
+
+    # Okay, we're safe, keep going.
     my $user = User->new($this);
 
     # We used to have to tell User objects that they were local, but
