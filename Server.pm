@@ -64,6 +64,7 @@ sub new {
   $this->{'distance'}    = $connection->{'distance'};
   $this->{'proto'}       = $connection->{'proto'};
   $this->{'server'}      = $connection->{'server'};
+  $this->{'version'}     = $Utils::VERSION;
   $this->{'last_active'} = time();
 
   tie my %usertmp,  'Tie::IRCUniqueHash';
