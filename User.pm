@@ -1088,6 +1088,13 @@ sub ping_in_air {
   }
 }
 
+# Checks whether the user is on a given channel
+sub onchan {
+  my($user,$chan)=@_;
+
+  return defined($user->{'channels'}->{$chan->{'name'}});
+}
+
 #####################################################################
 # SENDING THIS USER STUFF
 #########################
@@ -1250,6 +1257,10 @@ sub sendnumeric {
 # Does the actual queueing of a bit of data
 sub senddata {
   Connection::senddata(@_);
+}
+
+sub sendreply {
+  Connection::sendreply(@_);
 }
 
 1;

@@ -203,24 +203,30 @@ sub sendnumeric {
 # if the code contains a ">", then whatever follows the > is used as the
 # destination nick. otherwise, the destination nick will automatically be set
 # based on the destination object.
+# if the first passed argument after the destination user is also a user
+# object, then the default source will be the nick!user@host of that user
+# object (instead of the server name).
 # sendreply will insert the destination nick between the code and the data.
 # if part of the data is a multi-word argument, the colon must be explicitly
 # included; sendreply won't magically add one in.
 sub sendreply {
-  my($this,@replies)=@_;
+  my($this,$src,@replies)=@_;
   my($reply,$fromstr,$repcode,$data,$destnick);
+
+  ($src,@replies)=(undef,$src,@replies) if(!ref($src) || !isa($src,"User"));
   
   defined($destnick=$this->{nick}) or $destnick='*';
   
   foreach $reply (@replies) {
     if($reply=~/^:/) {
       ($fromstr,$reply)=$reply=~/(\S+)\s+(.*)/;
+    } elsif(defined($src)) {
+      $fromstr=":$$src{nick}!$$src{user}\@$$src{host}";
     } else {
       $fromstr=":${$$this{server}}{name}";
     }
     ($repcode,$data)=$reply=~/(\S*)(.*)/;
     if($repcode=~/>/) {
-#print "squeezing oj $repcode\n";
       ($repcode,$destnick)=$repcode=~/([^>]+)>(.*)/;
     }
     $this->senddata("$fromstr $repcode $destnick$data\r\n");
