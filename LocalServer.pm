@@ -66,12 +66,18 @@ sub loadconffile {
   $this->{'nets'} = { };
   $this->{'motd'} = [undef];
   $this->{'admin'} = [undef,undef,undef];
+  $this->{'mechanics'} = { PINGCHECKTIME => 90,
+                           PINGOUTTIME => 90,
+                           FLOODOFFBYTES => 1,
+                           FLOODOFFLINES => 10 };
 
   open(CONF,$this->{'conffile'});
   my @lines = <CONF>;
   close(CONF);
   my $line;
+  my $i = 0;
  CONFPARSE: foreach $line (@lines) {
+    $i++;
     chomp($line);
 
     # Machine line
@@ -127,10 +133,28 @@ sub loadconffile {
     }
     # Network Line
     if($line =~ /^N:([^:]+):([^:]+):([^:]+)$/) {
-      my($server,$address,$password) = ($1,$2,$3,$4);
+      my($server,$address,$password) = ($1,$2,$3);
       $this->{'nets'}->{$server}     = [$server,$address,$password];
       next CONFPARSE;
     }
+    # Mechanics Line
+    if($line =~ /^MECH:(\d+)?:(\d+)?:(\d+)?:(\d+)?$/) {
+      my($pc,$po,$fb,$fl) = ($1,$2,$3,$4);
+      if(!defined($pc)) { $pc = $this->{'mechanics'}->{PINGCHECKTIME}; }
+      if($pc < 0) { die('Bad ping check time in mechanics line'); }
+      if(!defined($po)) { $po = $this->{'mechanics'}->{PINGOUTTIME}; }
+      if($po <= 0) { die('Bad ping out time in mechanics line'); }
+      if(!defined($fb)) { $fb = $this->{'mechanics'}->{FLOODOFFBYTES}; }
+      if($fb <= 0) { die('Bad flood bytes in mechanics line'); }
+      if(!defined($fl)) { $fl = $this->{'mechanics'}->{FLOODOFFLINES}; }
+      if($fl <= 0) { die('Bad flood lines time in mechanics line'); }
+      $this->{'mechanics'} = { PINGCHECKTIME => $pc,
+                               PINGOUTTIME => $po,
+                               FLOODOFFBYTES => $fb,
+                               FLOODOFFLINES => $fl };
+      next CONFPARSE;
+    }
+    die('Line '.$i.' in '.$this->{'conffile'}.' invalid.');
   }
 }
 

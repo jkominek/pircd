@@ -207,9 +207,28 @@ MOTD:<.+>
 which case, the MOTD as displayed to the user will be a single line, or, if
 it is a valid file name, the contents of that file will be used.
 
+K:<mask>:<reason>:<usermask>
+ The _K_ill line bans a user or group of users from accessing the server.
+
 O:<nick>:<mask>:<password>
  The _O_per line defines what users are allowed to gain operator privilages,
 and the passwords which they have to use to do so.
+
+MECH:<ping check time>:<ping out time>:<flood bytes>:<flood lines>
+ The _MECH_anics line controls some internal mechanisms in pircd. If a
+value is not specified (if it is left blank), the default is used.
+
+The actual default values are defined in LocalServer.pm.
+From the code which this line replaces: (explaining the use of each,
+and showing the default value from beta zero)
+my $PINGCHECKTIME=90; # number of idle seconds before a ping check.
+my $PINGOUTTIME  =90; # number of seconds we allow before we ping the luser
+                      # out.
+my $FLOODOFFBYTES=1;  # if you've triggered the flood kungfu and you have
+                      # more than this number of bytes in your inbuffer,
+                      # you die.
+my $FLOODOFFLINES=10; # number of lines you have to spew to trigger
+                      # flood kungfu
 
 ##########################################################################
 # User.pm                                                                #
