@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Wed Nov 17 00:11:22 1999 by tek@wiw.org
+# Revised: Sun Jan 23 16:35:29 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -148,7 +148,7 @@ sub setban {
   my $mask = shift;
 
   if(!defined($this->{'bans'}->{$mask})) {
-    $this->{'bans'}->{$mask} = ($user->nick,time());
+    $this->{'bans'}->{$mask} = [$user->server->name,time()];
     return $mask;
   } else {
     return 0;
@@ -312,7 +312,7 @@ sub mode {
     return;
   } elsif($modestr eq "b") {
     foreach(keys(%{$this->{'bans'}})) {
-      my @bandata = $this->{'bans'}->{$_};
+      my @bandata = @{$this->{'bans'}->{$_}};
       $user->sendnumeric($user->server,367,($this->{name},$_,@bandata),undef);
     }
     $user->sendnumeric($user->server,368,($this->{name}),"End of Channel Ban List");
@@ -431,23 +431,6 @@ sub join {
 
   my($fu,$bar) = ($user->nick,$this->{name});
 
-  # Test to see if the user is banned from the channel
-  my @banmasks = keys(%{$this->{bans}});
-  my(@banregexps, $mask);
-  $mask = $user->nick."!".$user->username."\@".$user->host;
-  foreach(@banmasks) {
-    my $regexp = $_;
-    $regexp =~ s/\./\\\./g;
-    $regexp =~ s/\?/\./g;
-    $regexp =~ s/\*/\.\*/g;
-    $regexp = "^".$regexp."\$";
-    push(@banregexps,$regexp);
-  }
-  if(grep {$mask =~ /$_/} @banregexps) {
-    $user->sendnumeric($user->server,474,$this->{name},"Cannot join channel (+b)");
-    return;
-  }
-
   if(defined($this->{hasinvitation}->{$user})) {
     $hasinvitation = 1;
     delete($this->{hasinvitation}->{$user});
@@ -462,7 +445,7 @@ sub join {
 
   # If the user is invited, [or godlike] then they can bypass the key,
   # limit, and bans
-  if(!$hasinvitation && !$user->ismode('g')) {
+  unless($hasinvitation || $user->ismode('g')) {
     # Test to see if the user knows the channel key
     if($this->ismode('k')) {
       unless(grep {/^$this->{key}$/} @keys) {
@@ -479,6 +462,21 @@ sub join {
     }
 
     # Test for bans, here
+    my @banmasks = keys(%{$this->{bans}});
+    my(@banregexps, $mask);
+    $mask = $user->nick."!".$user->username."\@".$user->host;
+    foreach(@banmasks) {
+      my $regexp = $_;
+      $regexp =~ s/\./\\\./g;
+      $regexp =~ s/\?/\./g;
+      $regexp =~ s/\*/\.\*/g;
+      $regexp = "^".$regexp."\$";
+      push(@banregexps,$regexp);
+    }
+    if(grep {$mask =~ /$_/} @banregexps) {
+      $user->sendnumeric($user->server,474,$this->{name},"Cannot join channel (+b)");
+      return;
+    }
   }
 
   #do the actual join
