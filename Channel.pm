@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Thu Apr 22 11:15:34 1999 by jay.kominek@colorado.edu
+# Revised: Sat Jun 26 01:07:37 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -716,9 +716,12 @@ sub notifyofquit {
   my $user = shift;
   my $msg  = shift;
 
+  delete($user->{'channels'}->{$this->name()});
   delete($this->{'users'}->{$user->nick()});
   foreach(keys(%{$this->{'users'}})) {
-    $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." QUIT :$msg\r\n");
+    if($this->{'users'}->{$_}->islocal()) {
+      $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." QUIT :$msg\r\n");
+    }
   }
 
   if(0==scalar keys(%{$this->{'users'}})) {
