@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Sun Feb 21 13:31:15 1999 by jay.kominek@colorado.edu
+# Revised: Thu Apr 22 11:15:34 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -19,6 +19,8 @@ use Server;
 use strict;
 use UNIVERSAL qw(isa);
 
+use Tie::IRCUniqueHash;
+
 #####################################################################
 # CLASS CONSTRUCTOR
 ###################
@@ -32,8 +34,15 @@ sub new {
 
   $this->{'name'} = shift;
   my %tmp = ();
-  $this->{bans} = \%tmp;
-  $this->{creation} = time();
+  $this->{'bans'} = \%tmp;
+  $this->{'creation'} = time();
+
+  tie my %usertmp, 'Tie::IRCUniqueHash';
+  $this->{'users'} = \%usertmp;
+  tie my %opstmp,  'Tie::IRCUniqueHash';
+  $this->{'ops'}   = \%opstmp;
+  tie my %voicetmp,'Tie::IRCUniqueHash';
+  $this->{'voice'} = \%opstmp;
 
   bless($this, $class);
   return $this;
@@ -49,13 +58,9 @@ sub name {
   return $this->{'name'};
 }
 
-# Get the name of this channel in a form suitable for
-# keying a hash.
+# Deprecated by the use of Tie::IRCUniqueHash
 sub lcname {
-  my $this = shift;
-  my $tmp  = $this->{'name'};
-  $tmp     =~ tr/A-Z\[\]\\/a-z\{\}\|/;
-  return $tmp;
+  return shift;
 }
 
 sub users {
@@ -170,7 +175,7 @@ sub setban {
 
   if(!defined($this->{bans}->{$mask})) {
     $this->{bans}->{$mask} = ($user->nick,time());
-    return 1;
+    return $mask;
   } else {
     return 0;
   }
@@ -184,7 +189,7 @@ sub unsetban {
 
   if(defined($this->{bans}->{$mask})) {
     delete($this->{bans}->{$mask});
-    return 1;
+    return $mask;
   } else {
     return 0;
   }
@@ -202,7 +207,7 @@ sub banlist {
 sub isop {
   my $this = shift;
   my $user = shift;
-  if(defined($this->{ops}->{$user->lcnick()})) {
+  if(defined($this->{ops}->{$user->nick()})) {
     return 1;
   } else {
     return 0;
@@ -218,14 +223,14 @@ sub setop {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return 0;
   }
-  if(!defined($this->{users}->{$ret->lcnick()})) {
+  if(!defined($this->{users}->{$ret->nick()})) {
     $user->sendnumeric($user->server,441,$target,$this->name,
 		       "They aren't on the channel");
     return 0;
   }
-  if(!defined($this->{ops}->{$ret->lcnick()})) {
-    $this->{ops}->{$ret->lcnick()} = $user;
-    return 1;
+  if(!defined($this->{ops}->{$ret->nick()})) {
+    $this->{ops}->{$ret->nick()} = $user;
+    return $ret->nick;
   } else {
     return 0;
   }
@@ -240,14 +245,14 @@ sub unsetop {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return 0;
   }
-  if(!defined($this->{users}->{$ret->lcnick()})) {
+  if(!defined($this->{users}->{$ret->nick()})) {
     $user->sendnumeric($user->server,441,$target,$this->name,
 		       "They aren't on the channel");
     return 0;
   }
-  if(defined($this->{ops}->{$ret->lcnick()})) {
-    delete($this->{ops}->{$ret->lcnick()});
-    return 1;
+  if(defined($this->{ops}->{$ret->nick()})) {
+    delete($this->{ops}->{$ret->nick()});
+    return $ret->nick;
   } else {
     return 0;
   }
@@ -258,7 +263,7 @@ sub unsetop {
 sub hasvoice {
   my $this = shift;
   my $user = shift;
-  if(defined($this->{voice}->{$user->lcnick()})) {
+  if(defined($this->{voice}->{$user->nick()})) {
     return 1;
   } else {
     return 0;
@@ -274,14 +279,14 @@ sub setvoice {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return 0;
   }
-  if(!defined($this->{users}->{$ret->lcnick()})) {
+  if(!defined($this->{users}->{$ret->nick()})) {
     $user->sendnumeric($user->server,441,$target,$this->name,
 		       "They aren't on the channel");
     return 0;
   }
-  if(!defined($this->{voice}->{$ret->lcnick()})) {
-    $this->{voice}->{$ret->lcnick()} = $user;
-    return 1;
+  if(!defined($this->{voice}->{$ret->nick()})) {
+    $this->{voice}->{$ret->nick()} = $user;
+    return $ret->nick;
   } else {
     return 0;
   }
@@ -296,14 +301,14 @@ sub unsetvoice {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return 0;
   }
-  if(!defined($this->{users}->{$ret->lcnick()})) {
+  if(!defined($this->{users}->{$ret->nick()})) {
     $user->sendnumeric($user->server,441,$target,$this->name,
 		       "They aren't on the channel");
     return 0;
   }
-  if(defined($this->{voice}->{$ret->lcnick()})) {
-    delete($this->{voice}->{$ret->lcnick()});
-    return 1;
+  if(defined($this->{voice}->{$ret->nick()})) {
+    delete($this->{voice}->{$ret->nick()});
+    return $ret->nick;
   } else {
     return 0;
   }
@@ -351,19 +356,19 @@ sub mode {
 	if($state) {
 	  if($_ eq "b") {
 	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($this->setban($user,$arg))) {
+	    if(defined($arg) && ($arg=$this->setban($user,$arg))) {
 	      push(@accomplishedset,$_);
 	      push(@accomplishedargs,$arg);
 	    }
 	  } elsif($_ eq "o") {
 	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($this->setop($user,$arg))) {
+	    if(defined($arg) && ($arg=$this->setop($user,$arg))) {
 	      push(@accomplishedset,$_);
 	      push(@accomplishedargs,$arg);
 	    }
 	  } elsif($_ eq "v") {
 	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($this->setvoice($user,$arg))) {
+	    if(defined($arg) && ($arg=$this->setvoice($user,$arg))) {
 	      push(@accomplishedset,$_);
 	      push(@accomplishedargs,$arg);
 	    }
@@ -387,19 +392,19 @@ sub mode {
 	} else {
 	  if($_ eq "b") {
 	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($this->unsetban($user,$arg))) {
+	    if(defined($arg) && ($arg=$this->unsetban($user,$arg))) {
 	      push(@accomplishedunset,$_);
 	      push(@accomplishedargs,$arg);
 	    }
 	  } elsif($_ eq "o") {
 	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($this->unsetop($user,$arg))) {
+	    if(defined($arg) && ($arg=$this->unsetop($user,$arg))) {
 	      push(@accomplishedunset,$_);
 	      push(@accomplishedargs,$arg);
 	    }
 	  } elsif($_ eq "v") {
 	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($this->unsetvoice($user,$arg))) {
+	    if(defined($arg) && ($arg=$this->unsetvoice($user,$arg))) {
 	      push(@accomplishedunset,$_);
 	      push(@accomplishedargs,$arg);
 	    }
@@ -428,7 +433,7 @@ sub mode {
       }
       foreach(values(%{$this->{'users'}})) {
 	if($_->islocal()) {
-	  $_->senddata(":".$user->nick."!".$user->username."\@".$user->host." MODE ".$this->name." :$changestr\r\n");
+	  $_->senddata(":".$user->nick."!".$user->username."\@".$user->host." MODE ".$this->name." $changestr\r\n");
 	}
       }
     }
@@ -521,8 +526,8 @@ sub join {
     # Test for bans, here
   }
 
-  $user->{channels}->{$this->lcname()} = $this;
-  $this->{'users'}->{$user->lcnick()}  = $user;
+  $user->{'channels'}->{$this->name()} = $this;
+  $this->{'users'}->{$user->nick()}  = $user;
   if(1==scalar keys(%{$this->{'users'}})) {
     $this->setop($user,$user->nick());
   }
@@ -548,8 +553,8 @@ sub force_join {
                       # so that when we propogate the join on,
                       # we don't tell it.
 
-  Utils::channels()->{$this->lcname()} = $this;
-  $this->{'users'}->{$user->lcnick()} = $user;
+  Utils::channels()->{$this->name()} = $this;
+  $this->{'users'}->{$user->nick()} = $user;
   foreach(keys(%{$this->{'users'}})) {
     if($this->{'users'}->{$_}->islocal()) {
       $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." JOIN :".$this->name."\r\n");
@@ -564,16 +569,16 @@ sub part {
   my $user = shift;
   my $server = shift;
 
-  delete($user->{channels}->{$this->lcname()});
+  delete($user->{channels}->{$this->name()});
   foreach(keys(%{$this->{'users'}})) {
     if($this->{'users'}->{$_}->islocal()) {
       $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." PART :".$this->name."\r\n");
     }
   }
-  delete($this->{'users'}->{$user->lcnick()});
+  delete($this->{'users'}->{$user->nick()});
 
   if(0==scalar keys(%{$this->{'users'}})) {
-    delete(Utils::channels()->{$this->lcname()});
+    delete(Utils::channels()->{$this->name()});
   }
 
   # Hmm. Need some way to determine if
@@ -593,7 +598,7 @@ sub kick {
       $user->sendnumeric($user->server,401,$target,"No such nick");
       return;
     }
-    delete($sap->{channels}->{$this->lcname()});
+    delete($sap->{channels}->{$this->name()});
     foreach(keys(%{$this->{'users'}})) {
       if($this->{'users'}->{$_}->islocal()) {
 
@@ -604,9 +609,9 @@ sub kick {
 	$this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." KICK ".$this->name." ".$sap->nick." :$excuse\r\n");
       }
     }
-    delete($this->{'users'}->{$sap->lcnick()});
+    delete($this->{'users'}->{$sap->nick()});
     if(0==scalar keys(%{$this->{'users'}})) {
-      delete(Utils::channels()->{$this->lcname()});
+      delete(Utils::channels()->{$this->name()});
     }
   } else {
     $user->sendnumeric($user->server,482,$this->name,"You are not a channel operator");
@@ -619,8 +624,7 @@ sub invite {
   my $target = shift;
 
   if($this->isop($from)) {
-    
-    $this->{hasinvitation}->{$target} = 1;
+    $this->{'hasinvitation'}->{$target} = 1;
     $target->addinvited($this);
     $target->invite($from,$this->name());
   } else {
@@ -632,7 +636,7 @@ sub nickchange {
   my $this = shift;
   my $user = shift;
 
-  $this->{'users'}->{$user->lcnick()} = $user;
+  $this->{'users'}->{$user->nick()} = $user;
   delete($this->{'users'}->{Utils::irclc($user->{'oldnick'})});
 
   my $nick;
@@ -656,7 +660,7 @@ sub checkvalidtosend {
   my $this = shift;
   my $user = shift;
 
-  if($this->ismode('n') && (!defined($this->{'users'}->{$user->lcnick()}))) {
+  if($this->ismode('n') && (!defined($this->{'users'}->{$user->nick()}))) {
     $user->senddata(":".$user->server->name." 404 ".$user->nick." ".$this->name." Cannot send to channel.\r\n");
     return 0;
   }
@@ -712,13 +716,13 @@ sub notifyofquit {
   my $user = shift;
   my $msg  = shift;
 
-  delete($this->{'users'}->{$user->lcnick()});
+  delete($this->{'users'}->{$user->nick()});
   foreach(keys(%{$this->{'users'}})) {
     $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." QUIT :$msg\r\n");
   }
 
   if(0==scalar keys(%{$this->{'users'}})) {
-    delete(Utils::channels()->{$this->lcname()});
+    delete(Utils::channels()->{$this->name()});
   }
 }
 
