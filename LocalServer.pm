@@ -18,11 +18,13 @@ use Channel;
 use Server;
 use strict;
 use Utils;
-use vars qw(@ISA);
+use vars qw(@ISA $VERSION);
 use UNIVERSAL qw(isa);
 @ISA=qw{Server};
 
 use Tie::IRCUniqueHash;
+
+$VERSION=$Utils::VERSION;
 
 ###################
 # CLASS CONSTRUCTOR
@@ -124,9 +126,9 @@ sub loadconffile {
 # Things That Do Things
 
 sub rehash {
-  my $this = shift;
-  my $from = shift;
+  my($this,$from)=(shift,shift);
   my $user;
+
   foreach $user (values(%{$this->{'users'}})) {
     if($user->ismode('s')) {
       $user->notice($this,"*** Notice -- ".$from->nick." is rehashing Server config file");
@@ -158,13 +160,6 @@ sub name {
   return $this->{'name'};
 }
 
-sub lcname {
-  my $this = shift;
-  my $tmp  = $this->{'name'};
-  $tmp     =~ tr/A-Z\[\]\\/a-z\{\}\|/;
-  return $tmp;
-}
-
 sub description {
   my $this = shift;
   return $this->{'description'};
@@ -190,10 +185,6 @@ sub parent {
 
 sub hops {
   return 0;
-}
-
-sub version {
-  return &Utils::version;
 }
 
 sub creation {

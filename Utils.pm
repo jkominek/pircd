@@ -2,7 +2,7 @@
 # 
 # Utils.pm
 # Created: Wed Sep 23 21:56:44 1998 by jay.kominek@colorado.edu
-# Revised: Sun Oct 31 14:07:43 1999 by jay.kominek@colorado.edu
+# Revised: Sat Nov 20 04:05:48 1999 by tek@wiw.org
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -14,12 +14,13 @@
 #####################################################################
 
 package Utils;
-use User;
-use Server;
-use Channel;
+#use User;
+#use Server;
+#use Channel;
 use Sys::Syslog;
 use UNIVERSAL qw(isa);
 use strict;
+use vars qw($VERSION %params);
 
 use Tie::IRCUniqueHash;
 # We store these structures in a globalish location,
@@ -30,9 +31,11 @@ tie my %channels, 'Tie::IRCUniqueHash';
 
 my $syslogsetup = 0;
 
-sub version {
-  return "pircd-alpha-twelve";
-}
+$VERSION="pircd-alpha-12";
+%params=(syslog=>0,		# use syslog for log messages?
+	 logfile=>undef,	# filename for log, use STDERR if undef
+	 );
+
 
 sub lookup {
   my $name = shift;
@@ -93,19 +96,90 @@ sub syslog {
   my $data = shift;
 
   if(!$syslogsetup) {
-#    openlog('pircd','ndelay,pid','daemon');
-    open(STDERR, ">>pircd.log") or die "Unable to open pircd.log: $!";
+    if($params{syslog}) {
+      openlog('pircd','ndelay,pid','daemon');
+    } elsif($params{logfile}) {
+      open(STDERR, ">>$params{logfile}") 
+	or die "Unable to open $params{logfile}: $!";
+    }
     $syslogsetup = 1;
   }
 
-#  syslog(@_);
-  print STDERR "$data: ",shift,"\n";
+  if($params{syslog}) {
+    syslog(@_);
+  } else {
+    print STDERR "$data: ",shift,"\n";
+  }
 }
 
 sub irclc ($) {
   my $data = shift;
   $data =~ tr/A-Z\[\]\\/a-z\{\}\|/;
   return $data;
+}
+
+# Called when a line of input has been read from a connection. Given a class
+# object, the line of input, and a ref to a hash of handler functions, parses
+# out the command and data from the input line and calls the appropriate
+# handler function. Updates the 'last_active' and 'ping_waiting' values on the
+# class object. 
+# The handler function is called with the given class object as the first
+# argument, the entire given line as the second argument, and one additional
+# argument for each (irc) argument on the given line.
+sub do_handle {
+    my($object, $line, $handlers)=(shift,shift,shift);
+    my $command;
+    my $args;
+    my @arglist;
+    my $func;
+    my($foo,$bar);
+
+    $object->{'last_active'} = time();
+    undef $object->{'ping_waiting'};
+
+    # The command that we key on is the first string of alphabetic
+    #  characters (and _, but we'll ignore that)
+    # note that we leave the leading whitespace in $args. the * after the space
+    # character is just to make the regex still match an argumentless line.
+    # since the \w+ greedily grabs everything up to a space, there will always
+    # be a leading space in $args if $args is non-empty.
+    ($command,$args)=$line =~ /^(\w+)( *.*)/;
+
+    $func=$handlers->{uc($command)};
+
+    if(defined($func)) {
+	@arglist=();
+	if(scalar(($foo,$bar)=split(/ +:/,$args,2))==2) {
+	    # if an arg starts with a colon, the entire part of the line
+	    # following the colon must be treated as a single arg
+	    $args=$foo;
+	    push @arglist, $bar;
+	}
+#	} else {
+	    # we needed the leading whitespace on the first arg for the above
+	    # check, but it'd just fuck the below split to hell, so if the
+	    # check wasn't true, get rid of the whitespace.
+	    $args=~s/^ +//;
+#	}
+	unshift @arglist,split(/ +/,$args);
+#	print "arglist is ".join(':',@arglist)."\n";
+        &{$func}($object,$line,@arglist);
+    } elsif($line!~/^\s*$/) {
+        print "Received unknown command string '$line' from $$object{nick}\n";
+        $object->sendnumeric($object->server,421,($command),"Unknown command");
+    }
+}
+
+# returns 1 if the given string would be a valid irc nick, undef otherwise
+sub validnick {
+    my $str=shift;
+
+    return undef if(length($str)<1 || length($str)>30);
+
+    # valid characters given in rfc1459 2.3.1
+    return undef if($str=~/[^A-Za-z0-9-\[\]\\\`\^\{\}]/);
+
+    return 1;
 }
 
 1;
