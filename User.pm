@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Thu Jan 21 10:24:09 1999 by jay.kominek@colorado.edu
+# Revised: Sat Feb  6 10:12:14 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # This program is free software; you can redistribute it and/or modify it
@@ -46,17 +46,22 @@ sub new {
   # The connection object that we're spawned from has
   #  lots of information that we need to know to be who
   #  we are.
-  $this->{nick}        = $connection->{nick};
-  $this->{user}        = $connection->{user};
-  $this->{host}        = $connection->{host};
-  $this->{ircname}     = $connection->{ircname};
-  $this->{server}      = $connection->{server};
-  $this->{lookup}      = $connection->{lookup};
-  $this->{connected}   = $connection->{connected};
-  $this->{last_active} = time();
+  $this->{'nick'}        = $connection->{'nick'};
+  $this->{'user'}        = $connection->{'user'};
+  $this->{'host'}        = $connection->{'host'};
+  $this->{'ircname'}     = $connection->{'ircname'};
+  $this->{'server'}      = $connection->{'server'};
+  $this->{'lookup'}      = $connection->{'lookup'};
+  $this->{'connected'}   = $connection->{'connected'};
+  $this->{'last_active'} = time();
 
   bless($this, $class);
-  $this->{server}->adduser($this);
+  if(defined($connection->{'socket'})) {
+    $this->{'socket'}    = $connection->{'socket'};
+    $this->{'outbuffer'} = $connection->{'outbuffer'};
+    $this->setupaslocal();
+  }
+  $this->{'server'}->adduser($this);
   return $this;
 }
 
@@ -64,8 +69,6 @@ sub new {
 # information to deal with the fact.
 sub setupaslocal {
   my $this = shift;
-  $this->{socket}    = shift;
-  $this->{outbuffer} = shift;
 
   # Connectivity test response
   $this->addcommand('PONG',   \&handle_pong);
@@ -445,8 +448,9 @@ sub handle_kick {
 # INVITE
 sub handle_invite {
   my $this = shift;
+  my $waste;
   my($command,$nick,$channel) = split(/\s+/,shift);
-  my($channel,$waste) = split(/,/,$channel);
+    ($channel,$waste)         = split(/,/,$channel);
   
   my $tmpchan = Utils::lookupchannel($channel);
   my $user    = Utils::lookupuser($nick);
@@ -943,36 +947,36 @@ sub handle_quit {
 # Get the nick of this user
 sub nick {
   my $this = shift;
-  return $this->{nick};
+  return $this->{'nick'};
 }
 
 # Returns the nick of the user, properly lc'd so that it
 # can be used as a key
 sub lcnick {
   my $this = shift;
-  my $tmp = $this->{nick};
+  my $tmp = $this->{'nick'};
   $tmp =~ tr/A-Z\[\]\\/a-z\{\}\|/;
   return $tmp;
 }
 
 sub username {
   my $this = shift;
-  return $this->{user};
+  return $this->{'user'};
 }
 
 sub ircname {
   my $this = shift;
-  return $this->{ircname};
+  return $this->{'ircname'};
 }
 
 sub host {
   my $this = shift;
-  return $this->{host};
+  return $this->{'host'};
 }
 
 sub islocal {
   my $this = shift;
-  if(defined($this->{socket})) {
+  if(defined($this->{'socket'})) {
     return 1;
   } else {
     return 0;
@@ -981,7 +985,7 @@ sub islocal {
 
 sub server {
   my $this = shift;
-  return $this->{server};
+  return $this->{'server'};
 }
 
 sub isoper {
@@ -1074,7 +1078,7 @@ sub privmsg {
   my $from = shift;
   my $msg  = shift;
 
-  if($this->{socket}) {
+  if($this->{'socket'}) {
     if(isa($from,"User")) {
       $this->senddata(":".$from->nick."!".$from->username."\@".$from->host." PRIVMSG ".$this->nick." :$msg\r\n");
     } elsif(isa($from,"Server")) {
@@ -1093,7 +1097,7 @@ sub notice {
   my $from = shift;
   my $msg  = shift;
 
-  if($this->{socket}) {
+  if($this->{'socket'}) {
     if(isa($from,"User")) {
       $this->senddata(":".$from->nick."!".$from->username."\@".$from->host." NOTICE ".$this->nick." :$msg\r\n");
     } elsif(isa($from,"Server")) {
@@ -1108,7 +1112,7 @@ sub notice {
 
 sub invite {
   my($this,$from,$channel) = @_;
-  if($this->{socket}) {
+  if($this->{'socket'}) {
     # local user
     $this->senddata(":".$from->nick."!".$from->username."\@",$from->host." INVITE ".$this->nick." :$channel\r\n");
   } else {
@@ -1125,10 +1129,10 @@ sub addinvited {
 # Sends the person a ping to test connectivity.
 sub ping {
   my $this = shift;
-  if($this->{socket}) {
+  if($this->{'socket'}) {
     # If they're not a local user, its not our problem
     $this->{ping_waiting} = 1;
-    $this->senddata("PING :".$this->{server}->name."\r\n");1
+    $this->senddata("PING :".$this->{'server'}->name."\r\n");
   }
 }
 
@@ -1151,9 +1155,9 @@ sub quit {
     $this->{channels}->{$_}->notifyofquit($this,$msg);
   }
   # Tell connected servers that they're gone
-  $this->{server}->removeuser($this);
+  $this->{'server'}->removeuser($this);
   # Disconnect them
-  &main::finishclient($this->{socket});
+  &main::finishclient($this->{'socket'});
 }
 
 #####################################################################
@@ -1203,7 +1207,7 @@ sub sendnumeric {
 sub senddata {
   my $this = shift;
 
-  $this->{outbuffer}->{$this->{socket}} .= join('',@_);
+  $this->{outbuffer}->{$this->{'socket'}} .= join('',@_);
 }
 
 1;
