@@ -2,22 +2,11 @@
 # 
 # Server.pm
 # Created: Tue Sep 15 13:55:23 1998 by jay.kominek@colorado.edu
-# Revised: Sun Feb  7 22:52:53 1999 by jay.kominek@colorado.edu
+# Revised: Fri Feb 12 12:17:55 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
-# This program is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 1, or (at your option) any
-# later version.
-# 
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 675 Mass Ave, Cambridge, MA 02139, USA.
+# Consult the file 'LICENSE' for the complete terms under which you
+# may use this file.
 # 
 #####################################################################
 # Server object for The Perl Internet Relay Chat Daemon
@@ -62,6 +51,7 @@ sub setupaslocal {
   my $this = shift;
 
   $this->addcommand('PING',    \&handle_ping);
+  $this->addcommand('PONG',    \&handle_pong);
 
   # Channel membership
   $this->addcommand('JOIN',    \&handle_join);
@@ -142,7 +132,8 @@ sub setupaslocal {
 			 "BC", # Burst Channel. Only place of generation.
 			 $channel->name,
 			 $channel->creation,
-			 map { $_->nick } $channel->users()
+			 scalar($channel->users()),
+			 map { ($channel->hasvoice($_)?"+":"").($channel->isop($_)?"@":"").$_->nick } $channel->users(),
 			)."\r\n"
 		   );
   }
@@ -155,7 +146,7 @@ sub spewchildren {
 		       ":".$this->server->name,
 		       "SERVER",
 		       $server->name,
-		       $server->distance+1,
+		       $server->hops+1,
 		       0,    # timestamp a
 		       time, # timestamp b
 		       "Px1",
@@ -165,6 +156,12 @@ sub spewchildren {
   }
 }
 
+#####################################################################
+# PROTOCOL HANDLERS
+###################
+
+##############
+# Main Handler
 sub handle {
   my $this = shift;
   my $rawline = shift;
@@ -191,14 +188,33 @@ sub handle {
   }
 }
 
+# :remote PING :string
 sub handle_ping {
   my $this = shift;
-  print "handle_ping called\n";
+  my($from,$command,$arg) = split(/\s+/,shift,3);
+  $arg =~ s/^://;
+  $this->senddata(":".$this->name." PONG :$arg\r\n");
 }
 
+# :remote PONG :string
+sub handle_pong {
+  # my $this = shift;
+  # Don't waste our time doing anything
+}
+
+# :remote NICK nick hopcount timestamp username hostname servername ircname
 sub handle_nick {
   my $this = shift;
-
+  my($remote,$command,$nick,$hopcount,$timestamp,$username,$hostname,
+     $servername,$ircname) = split(/\s+/,shift,9);
+  # The user will add itself to the appropriate server itself
+  my $user = User->new({ 'nick' => $nick,
+			 'user' => $username,
+			 'host' => $hostname,
+			 'ircname' => $ircname,
+			 'server' => Utils::lookup($servername),
+			 'connected' => $timestamp });
+  Utils::users()->{$user->lcnick()} = $user;
 }
 
 sub handle_kill {
@@ -206,11 +222,24 @@ sub handle_kill {
 
 }
 
+# :remote QUIT nick excuse
 sub handle_quit {
   my $this = shift;
+  my($nick,$command,$excuse) = split(/\s+/,shift,3);
+  # redistribute the quit message to other servers
+  $nick =~ s/^://;
+  $excuse =~ s/^://;
 
+  my $user = Utils::lookup($nick);
+  if(ref($user) && $user->isa("User")) {
+    $user->quit($excuse);
+  } else {
+    print "attempted to quit user who doesn't exist to us.\n";
+    # woo! network desync, getting quits from users we don't know about
+  }
 }
 
+# :remote AWAY nick :excuse
 sub handle_away {
   my $this = shift;
 
@@ -218,18 +247,46 @@ sub handle_away {
 
 sub squit {
   my $this = shift;
-  
+  $this->parent->removechildserver($this);
+  &main::finishclient($this->{'socket'});
 }
 
 #####################################################################
 # SENDING THE SERVER STUFF
 ##########################
 
+# Takes a User as the argument, sends the server all requisite information
+# about that user.
+sub nick {
+  my $this = shift;
+  my $user = shift;
+  $this->senddata(join(' ',
+		       ":".$this->parent->name,
+		       "NICK",
+		       $user->nick,
+		       $user->server->hops+1,
+		       $user->connected,
+		       $user->username,
+		       $user->host,
+		       $user->server->name,
+		       $user->ircname)."\r\n");
+}
+
+sub uquit {
+  my $this = shift;
+  my $user = shift;
+  my $excuse = shift;
+  $this->senddata(join(' ',
+		       ":".$user->nick,
+		       "QUIT",
+		       $excuse)."\r\n");
+}
+
 sub ping {
   my $this = shift;
   if($this->{'socket'}) {
     $this->{ping_waiting} = 1;
-    $this->senddata("PING :".$this->{server}->name."\r\n");
+    $this->senddata(":".$this->{'server'}->name." PING :".$this->{'server'}->name."\r\n");
   } else {
 
   }
@@ -337,7 +394,7 @@ sub removeuser {
   if(ref($user)) {
     $nick = $user->lcnick();
   } else {
-    $nick = $user;
+    $nick = Utils::irclc($user);
   }
 
   delete($this->{'users'}->{$nick});
