@@ -2,7 +2,7 @@
 # 
 # Utils.pm
 # Created: Wed Sep 23 21:56:44 1998 by jay.kominek@colorado.edu
-# Revised: Thu Jan 27 13:35:54 2000 by jay.kominek@colorado.edu
+# Revised: Thu Mar 23 16:48:13 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -178,7 +178,7 @@ sub do_handle {
 #	print "arglist is ".join(':',@arglist)."\n";
         &{$func}($object,$line,@arglist);
     } elsif($line!~/^\s*$/) {
-        print "Received unknown command string '$line' from $$object{nick}\n";
+#        print "Received unknown command string '$line' from $$object{nick}\n";
         $object->sendnumeric($object->server,421,($command),"Unknown command");
     }
 }

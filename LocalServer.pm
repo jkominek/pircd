@@ -2,7 +2,7 @@
 # 
 # LocalServer.pm
 # Created: Sat Sep 26 18:11:12 1998 by jay.kominek@colorado.edu
-# Revised: Sun Feb 13 13:57:57 2000 by jay.kominek@colorado.edu
+# Revised: Thu Mar 23 16:47:49 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -208,7 +208,6 @@ sub getadmin {
 sub getopers {
   my $this = shift;
   my @foo = keys %{$this->{'opers'}};
-  print "getopers: @foo\n";
   return $this->{'opers'};
 }
 

@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Wed Feb  9 20:06:25 2000 by jay.kominek@colorado.edu
+# Revised: Thu Mar 23 16:46:33 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -42,7 +42,7 @@ sub new {
   tie my %opstmp,  'Tie::IRCUniqueHash';
   $this->{'ops'}   = \%opstmp;
   tie my %voicetmp,'Tie::IRCUniqueHash';
-  $this->{'voice'} = \%opstmp;
+  $this->{'voice'} = \%voicetmp;
 
   bless($this, $class);
   return $this;
@@ -572,11 +572,16 @@ sub invite {
   my $this   = shift;
   my $from   = shift;
   my $target = shift;
-
+  
+  if($target->onchan($this)) {
+    $from->sendnumeric($from->server,443,$target->nick,$this->{name},"is already on channel");
+    return;
+  }
   if($this->isop($from) || $from->ismode('g')) {
     $this->{'hasinvitation'}->{$target} = 1;
     $target->addinvited($this);
     $target->invite($from,$this->{name});
+    $from->sendnumeric($from->server,341,$target->nick,$this->{name},undef);
   } else {
     $from->sendnumeric($from->server,482,$this->{name},"You are not a channel operator");
   }
