@@ -2,7 +2,7 @@
 # 
 # Server.pm
 # Created: Tue Sep 15 13:55:23 1998 by jay.kominek@colorado.edu
-# Revised: Fri Feb 12 12:17:55 1999 by jay.kominek@colorado.edu
+# Revised: Sun Feb 21 13:48:59 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -205,16 +205,30 @@ sub handle_pong {
 # :remote NICK nick hopcount timestamp username hostname servername ircname
 sub handle_nick {
   my $this = shift;
-  my($remote,$command,$nick,$hopcount,$timestamp,$username,$hostname,
-     $servername,$ircname) = split(/\s+/,shift,9);
-  # The user will add itself to the appropriate server itself
-  my $user = User->new({ 'nick' => $nick,
-			 'user' => $username,
-			 'host' => $hostname,
-			 'ircname' => $ircname,
-			 'server' => Utils::lookup($servername),
-			 'connected' => $timestamp });
-  Utils::users()->{$user->lcnick()} = $user;
+  my $line = shift;
+  $line =~ /^:(\S+)/;
+  my $from = Utils::lookup($1);
+  if(!ref($from)) {
+    # network desyncage.
+    return;
+  }
+  if($from->isa("Server")) {
+    my($remote,$command,$nick,$hopcount,$timestamp,$username,$hostname,
+       $servername,$ircname) = split(/\s+/,$line,9);
+    # The user will add itself to the appropriate server itself
+    my $user = User->new({ 'nick' => $nick,
+			   'user' => $username,
+			   'host' => $hostname,
+			   'ircname' => $ircname,
+			   'server' => Utils::lookup($servername),
+			   'connected' => $timestamp });
+    Utils::users()->{$user->lcnick()} = $user;
+  } elsif($from->isa("User")) {
+    # User is attempting to change their nick
+    my($nick,$command,$newnick) = split(/\s+/,$line,3);
+  } else {
+    # network weirdness
+  }
 }
 
 sub handle_kill {
@@ -239,16 +253,44 @@ sub handle_quit {
   }
 }
 
-# :remote AWAY nick :excuse
+# :nick AWAY :excuse
 sub handle_away {
   my $this = shift;
-
+  my($nick,$command,$excuse) = split(/\s+/,shift,3);
+  $nick   =~ s/^://;
+  $excuse =~ s/^://;
+  my $user = Utils::lookup($nick);
+  if(ref($user) && $user->isa("User")) {
+    if(defined($excuse)) {
+      $user->{awaymsg} = $excuse;
+    } else {
+      delete($user->{awaymsg});
+    }
+  } else {
+    # network desyncage.
+  }
 }
 
 sub squit {
   my $this = shift;
+  # we need to descend our tree of children, announcing the signoff of
+  # every one of them, then announce the server disconnect(s) and dump
+  # all the data structures. non-trivial.
+
+  # for now:
+  my $user;
+  foreach $user ($this->users()) {
+    $user->quit(join(' ',$this->parent->name,$this->name));
+  }
+
+  # Tell our parent we're gone
   $this->parent->removechildserver($this);
-  &main::finishclient($this->{'socket'});
+  # Remove us from the Servers hash
+  delete(Utils::servers()->{$this->lcname()});
+  # Close our socket if we have one
+  if($this->{'socket'}) {
+    &main::finishclient($this->{'socket'});
+  }
 }
 
 #####################################################################
@@ -280,6 +322,22 @@ sub uquit {
 		       ":".$user->nick,
 		       "QUIT",
 		       $excuse)."\r\n");
+}
+
+# Dispatch a wallops to this server
+sub wallops {
+  my $this = shift;
+  my($from,$message) = @_;
+  my $fromstr = "*unknown*";
+  if($from->isa("User")) {
+    $fromstr = $from->nick;
+  } elsif($from->isa("Server")) {
+    $fromstr = $from->name;
+  }
+  $this->senddata(join(' ',
+		       ":".$fromstr,
+		       "WALLOPS",
+		       $message)."\r\n");
 }
 
 sub ping {
@@ -396,6 +454,8 @@ sub removeuser {
   } else {
     $nick = Utils::irclc($user);
   }
+
+  print "server ".$this->name." is being requested to remove user $nick\n";
 
   delete($this->{'users'}->{$nick});
 }
