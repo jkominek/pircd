@@ -2,7 +2,7 @@
 # 
 # Server.pm
 # Created: Tue Sep 15 13:55:23 1998 by jay.kominek@colorado.edu
-# Revised: Sun Feb 21 13:48:59 1999 by jay.kominek@colorado.edu
+# Revised: Thu Apr 22 11:19:13 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -18,6 +18,8 @@ use User;
 use Channel;
 use strict;
 use UNIVERSAL qw(isa);
+
+use Tie::IRCUniqueHash;
 
 ###################
 # CLASS CONSTRUCTOR
@@ -37,13 +39,18 @@ sub new {
   $this->{server}      = $connection->{server};
   $this->{last_active} = time();
 
+  tie my %usertmp,  'Tie::IRCUniqueHash';
+  $this->{'users'}    = \%usertmp;
+  tie my %childtmp, 'Tie::IRCUniqueHash';
+  $this->{'children'} = \%childtmp;
+
   bless($this, $class);
   if(defined($connection->{'socket'})) {
     $this->{'socket'}    = $connection->{'socket'};
-    $this->{outbuffer} = $connection->{outbuffer};
+    $this->{'outbuffer'} = $connection->{'outbuffer'};
     $this->setupaslocal();
   }
-  $this->{server}->addchildserver($this);
+  $this->{'server'}->addchildserver($this);
   return $this;
 }
 
@@ -222,7 +229,7 @@ sub handle_nick {
 			   'ircname' => $ircname,
 			   'server' => Utils::lookup($servername),
 			   'connected' => $timestamp });
-    Utils::users()->{$user->lcnick()} = $user;
+    Utils::users()->{$user->nick()} = $user;
   } elsif($from->isa("User")) {
     # User is attempting to change their nick
     my($nick,$command,$newnick) = split(/\s+/,$line,3);
@@ -286,7 +293,7 @@ sub squit {
   # Tell our parent we're gone
   $this->parent->removechildserver($this);
   # Remove us from the Servers hash
-  delete(Utils::servers()->{$this->lcname()});
+  delete(Utils::servers()->{$this->name()});
   # Close our socket if we have one
   if($this->{'socket'}) {
     &main::finishclient($this->{'socket'});
@@ -360,13 +367,9 @@ sub name {
   return $this->{'name'};
 }
 
-# Get the name of this IRC server, appropriate for
-# keying a hash
+# Deprecated by the user of Tie::IRCUniqueHash
 sub lcname {
-  my $this = shift;
-  my $tmp  = $this->{'name'};
-  $tmp     =~ tr/A-Z\[\]\\/a-z\{\}\|/;
-  return $tmp;
+  return shift;
 }
 
 sub description {
@@ -439,7 +442,7 @@ sub hops {
 sub adduser {
   my $this = shift;
   my $user = shift;
-  $this->{'users'}->{$user->lcnick()} = $user;
+  $this->{'users'}->{$user->nick()} = $user;
 }
 
 sub removeuser {
@@ -450,9 +453,9 @@ sub removeuser {
   # or their User object.
   my $nick;
   if(ref($user)) {
-    $nick = $user->lcnick();
+    $nick = $user->nick();
   } else {
-    $nick = Utils::irclc($user);
+    $nick = $user;
   }
 
   print "server ".$this->name." is being requested to remove user $nick\n";
@@ -465,7 +468,7 @@ sub addchildserver {
   my $this  = shift;
   my $child = shift;
 
-  $this->{'children'}->{$child->lcname()} = $child;
+  $this->{'children'}->{$child->name()} = $child;
 }
 
 # Removes a server from the list of ones on this one.
@@ -475,7 +478,7 @@ sub removechildserver {
 
   my $name;
   if(ref($child)) {
-    $name = $child->lcname();
+    $name = $child->name();
   } else {
     $name = $child;
   }
