@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Thu Jan 20 21:44:00 2000 by jay.kominek@colorado.edu
+# Revised: Fri Jan 21 00:05:20 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -877,27 +877,26 @@ sub handle_connect {
 sub handle_kill {
   my $this = shift;
   my($command,$target,$excuse) = split/\s+/,shift,3;
-  my $user;
 
   $excuse =~ s/^://;
-  my $fchar = substr($target, 0, 1);
-  if(!$this->ismode('o') || $fchar eq "*") {
+  if(!$this->ismode('o')) {
+    $this->sendnumeric(this->server,481,"Permission Denied: You're not an IRC operator");
     return;
   }
 
-  if(!$excuse) {
+  if(!length $excuse) {
+    $this->sendnumeric($this->server,461,"KILL","Not enough parameters");
     return;
   }
 
-  my $fromnick = $this->nick();
-  my $fromhost = $this->{'host'};
-  my $fromuser = $this->{'user'};
-  $user = Utils::lookupuser($target);
+  my $user = Utils::lookupuser($target);
   if(!defined($user)) {
+    # Attempt nick chase
+    $this->sendnumeric($this->server,401,$target,"No such nick");
     return;
   }
 
-  $user->kill($excuse, $fromnick, $fromhost, $fromuser);
+  $user->kill($excuse, $this);
 }
 
 # WALLOPS :wibble
@@ -1143,15 +1142,17 @@ sub ping {
 
 # This happens when a person is killed.
 sub kill {
-  my ($this,$excuse,$fromnick,$fromaddr,$fromuser)=@_;
+  my ($this,$excuse,$from)=@_;
   my $channame;
   my @foo;
 
-  my $targetaddr = $this->{'host'};
-  my $outbuffer = ":$fromnick\!~$fromuser\@$fromaddr KILL " . $this->nick() . " :$targetaddr\!$fromnick \($excuse\)\n";
-  $this->{'socket'}->send($outbuffer, 0);
-
-  my $outbuffer = "ERROR :Closing Link: $this->{'nick'}\[$this->{'host'}\] by " . $fromnick . " \(Local kill by " . $fromnick . "\(" . $excuse . "\)\)\n";
+  my $outbuffer = sprintf(":%s\!%s\@%s KILL %s :%s\!%s (%s)\r\n",
+			  $from->nick,$from->username,$from->host,
+			  $this->nick,$this->host,$from->nick,
+			  $excuse);
+  $outbuffer   .= sprintf("ERROR :Closing Link: %s[%s] by %s (Local kill by %s (%s))\r\n",
+			  $this->nick,$this->host,
+			  $from->nick,$from->nick,$excuse);
   $this->{'socket'}->send($outbuffer, 0);
 
   # Remove them from all appropriate structures, etc
