@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Thu Jan 27 12:17:59 2000 by jay.kominek@colorado.edu
+# Revised: Thu Jan 27 22:17:13 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -286,7 +286,7 @@ sub donick {
       }
       foreach my $user (keys %userlist) {
 	next unless $userlist{$user}->islocal();
-	$this->senddata(":$$this{oldnick}!$$this{user}\@$$this{host} NICK :$$this{nick}\r\n");
+	$userlist{$user}->senddata(":$$this{oldnick}!$$this{user}\@$$this{host} NICK :$$this{nick}\r\n");
       }
       # FIXME should propogate to other servers
     }
