@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Sat Nov 20 03:53:17 1999 by tek@wiw.org
+# Revised: Sun Nov 21 20:23:36 1999 by tek@wiw.org
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -519,7 +519,11 @@ sub handle_names {
       foreach $chan (split(/,/,$channels)) {
 	  $foo=Utils::lookup($chan);
 	  if(defined($foo) && $foo->isa("Channel")) {
-	      push @chanlist, $foo
+	    unless($foo->ismode('s') &&
+		   !defined($foo->{users}->{$this->nick()}) &&
+		   !$this->ismode('g')) {
+	      push @chanlist, $foo;
+	    }
 	  }
       }
   } else {
