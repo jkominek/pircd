@@ -131,7 +131,7 @@ sub rehash {
 
   foreach $user (values(%{$this->{'users'}})) {
     if($user->ismode('s')) {
-      $user->notice($this,"*** Notice -- ".$from->nick." is rehashing Server config file");
+      $user->notice($this,"*** Notice -- ".$from->{nick}." is rehashing Server config file");
     }
   }
   &loadconffile($this);
