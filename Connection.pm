@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Fri Oct  2 21:42:49 1998 by jay.kominek@colorado.edu
+# Revised: Wed Nov 25 22:54:06 1998 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -66,7 +66,7 @@ sub handle {
 
  SWITCH: {
     if($line =~ /^PONG/i) {
-      my($command,$response) = split(/ /,$line);
+      my($command,$response) = split(/\s+/,$line);
       if($this->{doing_nospoof}>0) {
 	$response =~ s/^://;
 	if($response eq $this->{doing_nospoof}) {
@@ -82,7 +82,7 @@ sub handle {
       last SWITCH;
     }
     if($line =~ /^NICK/i) {
-      my($command,$str) = split(/ /,$line);
+      my($command,$str) = split(/\s+/,$line);
       $str =~ s/^://;
       if(defined($this->{nick})) {
 	$this->senddata(":$this->{nick} NICK :$str\r\n");
@@ -99,7 +99,7 @@ sub handle {
       last SWITCH;
     }
     if($line =~ /^USER/i) {
-      my($command,$username,$host,$server,$ircname) = split(/ /,$line,5);
+      my($command,$username,$host,$server,$ircname) = split(/\s+/,$line,5);
       $ircname =~ s/^://;
       $this->{user} = "~$username";
       $this->{ircname}  = $ircname;
@@ -110,12 +110,12 @@ sub handle {
     }
     if($line =~ /^SERVER/i) {
       my($command,$servername,$distance,$timea,$timeb,$proto,$description) =
-	split(/ /,$line);
+	split(/\s+/,$line);
       $description =~ s/^://;
       last SWITCH;
     }
     if($line =~ /^PASS/i) {
-      my($command,$password) = split(/ /,$line);
+      my($command,$password) = split(/\s+/,$line);
       $password =~ s/^://;
       # We don't actually do anything with the password yet
       $this->{password} = $password;
