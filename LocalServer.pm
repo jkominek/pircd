@@ -2,7 +2,7 @@
 # 
 # LocalServer.pm
 # Created: Sat Sep 26 18:11:12 1998 by jay.kominek@colorado.edu
-# Revised: Thu Apr 22 11:18:25 1999 by jay.kominek@colorado.edu
+# Revised: Wed May 26 21:07:29 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -90,6 +90,18 @@ sub loadconffile {
       $mask =~ s/\*/\.\*/g;
       $this->{opers}->{$nick}->{mask} = $mask;
       $this->{opers}->{$nick}->{password} = $password;
+      next CONFPARSE;
+    }
+    # Kill Line
+    if($line =~ /^K:([^:]+):([^:]+):([^.]+)$/) {
+      my($mask,$reason,$usermask) = ($1,$2,$3);
+      $mask =~ s/\./\\\./g;
+      $mask =~ s/\?/\./g;
+      $mask =~ s/\*/\.\*/g;
+      $usermask =~ s/\./\\\./g;
+      $usermask =~ s/\?/\./g;
+      $usermask =~ s/\*/\.\*/g;
+      $this->{klines}->{$mask} = [$usermask,$mask,$reason];
       next CONFPARSE;
     }
   }
