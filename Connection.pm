@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Wed Nov 25 22:54:06 1998 by jay.kominek@colorado.edu
+# Revised: Wed Dec  2 21:52:19 1998 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -173,7 +173,6 @@ sub senddata {
   my $this = shift;
   my $data = shift;
 
-  print $data;
   $this->{outbuffer}->{$this->{socket}} .= join('',$data);
 }
 
