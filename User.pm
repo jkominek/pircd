@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Tue Oct 26 19:21:54 1999 by jay.kominek@colorado.edu
+# Revised: Sun Oct 31 13:59:25 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -471,7 +471,9 @@ sub handle_whois {
 	if(scalar keys(%{$user->{channels}})>0) {
 	  foreach(keys(%{$user->{channels}})) {
 	    my $channel = Utils::channels()->{$_};
-	    unless(($channel->ismode('s'))&&(!defined($channel->userhash()->{$this->nick()}))&&(!$this->ismode('g'))) {
+	    unless($channel->ismode('s') &&
+		   !defined($channel->userhash()->{$this->nick()}) &&
+		   !$this->ismode('g')) {
 	      my $tmpstr = $channel->name();
 	      if($channel->isop($user)) {
 		$tmpstr = "@".$tmpstr;
@@ -517,9 +519,11 @@ sub handle_who {
       if($ret->isa("User")) {
 	$this->sendnumeric($this->server,352,("*",$ret->username,$ret->host,$ret->server->name,$ret->nick,"H"),$ret->server->hops." ".$ret->ircname);
       } elsif($ret->isa("Channel")) {
-	my @users = $ret->users();
-	foreach my $user (@users) {
-	  $this->sendnumeric($this->server,352,($ret->name,$user->username,$user->host,$user->server->name,$user->nick,"H"),$user->server->hops." ".$user->ircname);
+	unless(($ret->ismode('s'))&&(!defined($ret->userhash()->{$this->nick()}))&&(!$this->ismode('g'))) {
+	  my @users = $ret->users();
+	  foreach my $user (@users) {
+	    $this->sendnumeric($this->server,352,($ret->name,$user->username,$user->host,$user->server->name,$user->nick,"H"),$user->server->hops." ".$user->ircname);
+	  }
 	}
       } elsif($ret->isa("Server")) {
 	my @users = $ret->users();
@@ -591,8 +595,14 @@ sub handle_list {
   $this->sendnumeric($this->server,321,("Channel","Users"),"Name");
   my %channels = %{Utils::channels()};
   foreach my $channel (keys(%channels)) {
-    my @topicdata = $channels{$channel}->topic;
-    $this->sendnumeric($this->server,322,($channels{$channel}->name,scalar $channels{$channel}->users),$topicdata[0]);
+    unless($channels{$channel}->ismode('s') &&
+	   !defined($channels{$channel}->userhash()->{$this->nick()}) &&
+	   !$this->ismode('g')) {
+      my @topicdata = $channels{$channel}->topic;
+      $this->sendnumeric($this->server,322,
+			 ($channels{$channel}->name,
+			  scalar $channels{$channel}->users),$topicdata[0]);
+    }
   }
   $this->sendnumeric($this->server,323,"End of /LIST");
 }
@@ -1188,8 +1198,16 @@ sub quit {
     }
   }
   # Notify all the channels they're in of their disconnect
+  # So that no given user will receive the signoff message twice,
+  # we build this hash and then send the message to those users.
+  my(%userlist);
   foreach my $channel (keys(%{$this->{'channels'}})) {
-    $this->{'channels'}->{$channel}->notifyofquit($this,$msg);
+    my %storage = %{$this->{channels}->{$channel}->notifyofquit($this,$msg)};
+    foreach(keys %storage) { $userlist{$_} = $storage{$_} }
+  }
+  foreach my $user (keys %userlist) {
+    next unless $userlist{$user}->islocal();
+    $userlist{$user}->senddata(":".$this->nick."!".$this->username."\@".$this->host." QUIT :$msg\r\n");
   }
   # Tell connected servers that they're gone
   $this->server->removeuser($this);
