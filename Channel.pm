@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Tue Dec 12 20:25:51 2000 by jay.kominek@colorado.edu
+# Revised: Wed Jun  5 12:57:42 2002 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -305,7 +305,9 @@ sub mode {
       next if(!$this->{'modes'}->{$_}); # don't show unset modes
 
       if($_ eq "k") {
-	push(@args,  $this->{'key'});
+	if($user->onchan($this)) {
+	  push(@args,  $this->{'key'});
+	}
       } elsif($_ eq "l") {
 	push(@args,  $this->{'limit'});
       }
@@ -354,8 +356,13 @@ sub mode {
 	$arg=$this->setvoice($user,$arg) if($state);
 	$arg=$this->unsetvoice($user,$arg) if(!$state);
       } elsif($_ eq "l") {
-	$this->setmode($user,'l');
-	$this->{'limit'} = $arg;
+	if($arg =~ /\D/) {
+	  $user->sendreply("467 $$this{name} :Channel limit value \"$arg\" is nonnumeric");
+	  next;
+	} else {
+	  $this->setmode($user,'l');
+	  $this->{'limit'} = $arg;
+	}
       } elsif($_ eq "k") {
 	if($state) {
 	  if($this->ismode('k')) {
