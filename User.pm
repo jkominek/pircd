@@ -133,6 +133,23 @@ sub handle {
 #####################################################################
 # One-to-One, One-to-Many communication
 
+# sendreply to multiple users. takes a single message as the first argument and
+# a list of User objects as the second argument. will only send to a given user
+# once, no matter how many times that user is mentioned.
+sub multisend {
+  my($msg,@users)=@_;
+  my($thisuser,$lastuser);
+
+  # this is fairly evil. sort will compare the objects by stringifying them and
+  # then doing a lexicographical compare. stringify on a reference results in
+  # TYPE(0xaddr), so we will end up with the objects sorted by address.
+  foreach $thisuser (sort @users) {
+    next if($thisuser==$lastuser);
+    Connection::sendreply($thisuser,$msg);
+    $lastuser=$thisuser;
+  }
+}
+
 # PRIVMSG target :message
 # Where target is either a user or a channel
 
@@ -1071,9 +1088,10 @@ sub ping {
 
 # This happens when the person quits.
 sub quit {
-  my $this = shift;
-  my $msg  = shift;
-  my($channame);
+  my($this,$msg)=@_;
+  my $channame;
+  my @foo;
+
   # Remove them from all appropriate structures, etc
   # and announce it to local channels
   foreach $channame (keys(%{$this->{'hasinvitation'}})) {
@@ -1083,17 +1101,10 @@ sub quit {
     }
   }
   # Notify all the channels they're in of their disconnect
-  # So that no given user will receive the signoff message twice,
-  # we build this hash and then send the message to those users.
-  my(%userlist);
-  foreach my $channel (keys(%{$this->{'channels'}})) {
-    my %storage = %{$this->{channels}->{$channel}->notifyofquit($this,$msg)};
-    foreach(keys %storage) { $userlist{$_} = $storage{$_} }
+  foreach $channame (keys(%{$this->{'channels'}})) {
+    push @foo, $this->{channels}->{$channame}->notifyofquit($this);
   }
-  foreach my $user (keys %userlist) {
-    next unless $userlist{$user}->islocal();
-    $userlist{$user}->senddata(":".$this->nick."!".$this->username."\@".$this->host." QUIT :$msg\r\n");
-  }
+  multisend(":$$this{nick}!$$this{user}\@$$this{host} QUIT> :$msg",@foo);
   # Tell connected servers that they're gone
   $this->server->removeuser($this);
   # Remove us from the User hash
