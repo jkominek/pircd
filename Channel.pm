@@ -105,39 +105,33 @@ sub ismode {
   }
 }
 
-# setmode attempts to set the given mode to true. If the mode
-#  is not already set, then it sets it, and returns 1, else it
-#  returns 0.
-sub setmode {
-  my $this = shift;
-  my $user = shift;
-  my $mode = shift;
+# do the dirty work for setmode and unsetmode
+sub frobmode {
+  my($this,$user,$mode,$val)=@_;
+
   if(!isvalidchannelmode($mode)) {
-    $user->senddata(":".$this->{server}->{name}." 501 ".$this->{nick}." :Unknown mode flag \'$mode\'\r\n");
+    $user->senddata(":".$user->server->{name}." 501 ".$user->nick." :Unknown mode flag \'$mode\'\r\n");
+    return 0;
   }
-  if(!$this->{'modes'}->{$mode} || $mode == 'l' || $mode == 'k') {
-    $this->{'modes'}->{$_} = 1; 
+
+  if($this->{'modes'}->{$mode}!=$val) {
+    $this->{'modes'}->{$mode}=$val;
     return 1;
   } else {
     return 0;
   }
 }
 
+# setmode attempts to set the given mode to true. If the mode
+#  is not already set, then it sets it. returns 1 if a mode
+#  change was effected, 0 if the mode was already set.
+sub setmode {
+  frobmode(@_,1);
+}
+
 # unsetmode does the opposite of setmode.
 sub unsetmode {
-  my $this = shift;
-  my $user = shift;
-  my $mode = shift;
-  if(!isvalidchannelmode($mode)) {
-    $user->senddata(":".$user->server->{name}." 501 ".$user->nick." :Unknown mode flag \'$mode\'\r\n");
-    return 0;
-  }
-  if($this->{'modes'}->{$mode}) {
-    $this->{'modes'}->{$mode} = 0;
-    return 1;
-  } else {
-    return 0;
-  }
+  frobmode(@_,0);
 }
 
 # These functions manipulate or view the ban list for $this channel
@@ -301,9 +295,15 @@ sub mode {
   if(!defined($modestr)) {
     my(@modes,@args);
     foreach(keys(%{$this->{'modes'}})) {
-      if($_ eq "k") {    push(@args,  $this->{'key'}); }
-      elsif($_ eq "l") { push(@args,  $this->{'limit'}); }
-                         push(@modes, $_);
+      next if(!$this->{'modes'}->{$_}); # don't show unset modes
+
+      if($_ eq "k") {
+	push(@args,  $this->{'key'});
+      } elsif($_ eq "l") {
+	push(@args,  $this->{'limit'});
+      }
+      
+      push(@modes, $_);
     }
     $user->sendnumeric($user->server,324,($this->{name},"+".join('',@modes),@args),undef);
     $user->sendnumeric($user->server,329,($this->{name},$this->{'creation'}),undef);
