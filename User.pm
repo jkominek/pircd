@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Sun Feb 13 13:56:14 2000 by jay.kominek@colorado.edu
+# Revised: Thu Mar 23 16:55:47 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -249,7 +249,7 @@ sub handle_join {
     # ..if it is a channel..
     if(defined($tmp) && $tmp->isa("Channel")) {
       # ..then ask to join it, passing on all the keys
-      $tmp->join($this,@keys);
+      $tmp->join($this,@keys) unless $this->onchan($tmp);
     } else {
       # ..create the channel, if it's validly named
       if(($channel =~ /^\#/) || ($channel =~ /^\&/)) {
@@ -359,10 +359,15 @@ sub handle_invite {
   my $user    = Utils::lookupuser($nick);
   if($user && isa($user,"User")) {
     if($tmpchan && isa($tmpchan,"Channel")) {
+      if(!$this->onchan($tmpchan)) {
+	$this->sendnumeric($this->server,442,$this->{name},$tmpchan->{name},"You're not on that channel");
+	return;
+      }
       $tmpchan->invite($this,$user);
     } else {
       # it is valid to invite people to channels that do not exist
       $user->invite($this,$channel);
+      $this->sendnumeric($this->server,341,$user->nick,$this->{name},$channel,undef);
     }
   } else {
     $this->sendnumeric($this->server,401,$this->{name},$nick,"No such nick");
