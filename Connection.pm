@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Thu Jan 20 21:38:52 2000 by jay.kominek@colorado.edu
+# Revised: Fri Jan 21 20:26:42 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -258,6 +258,7 @@ sub donick {
     $this->senddata(":".$this->{'oldnick'}." NICK :".$this->{'nick'}."\r\n");
     if ($this->isa('User')) {	# not just an unpromoted connection
       unshift @Utils::nickhistory, { nick => $this->{'oldnick'},
+				     newnick => $this->{'nick'},
 				     username => $this->username,
 				     host => $this->host,
 				     ircname => $this->ircname,

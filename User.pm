@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Fri Jan 21 00:05:20 2000 by jay.kominek@colorado.edu
+# Revised: Fri Jan 21 20:40:12 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -177,9 +177,9 @@ sub msg_or_notice {
 	  }
 	}
       }
-    } elsif($this->ismode('o') && ($target =~ /^\#/)) {
+    } elsif($this->ismode('o') && ($target =~ /^\#.+\..+/)) {
       my $matchingusers = $target;
-      $matchingusers =~ s/^\$//;
+      $matchingusers =~ s/^\#//;
       $matchingusers =~ s/\./\\\./g;
       $matchingusers =~ s/\?/\./g;
       $matchingusers =~ s/\*/\.\+/g;
@@ -894,9 +894,18 @@ sub handle_kill {
 
   my $user = Utils::lookupuser($target);
   if(!defined($user)) {
-    # Attempt nick chase
-    $this->sendnumeric($this->server,401,$target,"No such nick");
-    return;
+    my $irclctarget = Utils::irclc($target);
+    for(my $i=0;$i<=$#Utils::nickhistory;$i++) {
+      last if (time-$Utils::nickhistory[$i]->{'time'}>15);
+      if($irclctarget eq Utils::irclc($Utils::nickhistory[$i]->{'nick'})) {
+	$user = Utils::lookupuser($Utils::nickhistory[$i]->{'newnick'});
+	last;
+      }
+    }
+    if(!defined($user)) {
+      $this->sendnumeric($this->server,401,$target,"No such nick");
+      return;
+    }
   }
 
   $user->kill($excuse, $this);
