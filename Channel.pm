@@ -112,7 +112,7 @@ sub setmode {
   my $this = shift;
   my $user = shift;
   my $mode = shift;
-  if(!&isvalidchannelmode($mode)) {
+  if(!isvalidchannelmode($mode)) {
     $user->senddata(":".$this->server->{name}." 501 ".$this->nick." :Unknown mode flag \'$mode\'\r\n");
   }
   if(!$this->{'modes'}->{$mode}) {
@@ -128,7 +128,7 @@ sub unsetmode {
   my $this = shift;
   my $user = shift;
   my $mode = shift;
-  if(!&isvalidchannelmode($mode)) {
+  if(!isvalidchannelmode($mode)) {
     $user->senddata(":".$this->server->{name}." 501 ".$this->nick." :Unknown mode flag \'$mode\'\r\n");
     return 0;
   }
