@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Thu Jan 27 22:17:13 2000 by jay.kominek@colorado.edu
+# Revised: Thu Mar 23 16:56:38 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -245,7 +245,10 @@ sub donick {
   my($this,$dummy,$newnick)=@_;
   my $timeleft=$this->{'next_nickchange'}-time();
   my $channel;
-  
+
+  if($newnick eq $this->{'nick'}) {
+    return; # silently discard stupid nick changes
+  }
   if ($timeleft>0) {
     $this->sendnumeric($this->server,438,$newnick,
 		       "Nick change too fast. Please wait $timeleft more seconds.");
