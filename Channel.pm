@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Tue Oct 26 19:23:17 1999 by jay.kominek@colorado.edu
+# Revised: Sun Oct 31 13:56:29 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -585,6 +585,8 @@ sub part {
     }
   }
   delete($this->{'users'}->{$user->nick()});
+  delete($this->{'ops'}->{$user->nick()});
+  delete($this->{'voice'}->{$user->nick()});
 
   if(0==scalar keys(%{$this->{'users'}})) {
     delete(Utils::channels()->{$this->name()});
@@ -647,6 +649,16 @@ sub nickchange {
   my $this = shift;
   my $user = shift;
 
+  if($this->{'ops'}->{$user->{'oldnick'}}) {
+    $this->{'ops'}->{$user->nick()} = $user;
+    delete $this->{'ops'}->{$user->{'oldnick'}};
+  }
+  
+  if($this->{'voice'}->{$user->{'oldnick'}}) {
+    $this->{'voice'}->{$user->nick()} = $user;
+    delete $this->{'voice'}->{$user->{'oldnick'}};
+  }
+  
   $this->{'users'}->{$user->nick()} = $user;
   delete($this->{'users'}->{Utils::irclc($user->{'oldnick'})});
 
@@ -729,15 +741,14 @@ sub notifyofquit {
 
   delete($user->{'channels'}->{$this->name()});
   delete($this->{'users'}->{$user->nick()});
-  foreach(keys(%{$this->{'users'}})) {
-    if($this->{'users'}->{$_}->islocal()) {
-      $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." QUIT :$msg\r\n");
-    }
-  }
+  delete($this->{'voice'}->{$user->nick()});
+  delete($this->{'ops'}->{$user->nick()});
 
   if(0==scalar keys(%{$this->{'users'}})) {
     delete(Utils::channels()->{$this->name()});
   }
+
+  return $this->{'users'};
 }
 
 1;
