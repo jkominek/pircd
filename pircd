@@ -55,8 +55,9 @@ use Getopt::Std;
 my %opts;
 getopts('dhp:q:sb:f:l:',\%opts) || &displayhelp;
 if(defined($opts{'p'})) { $port    = $opts{'p'}; }
-if(defined($opts{'p'})) { $sslport = $opts{'p'}; }
+if(defined($opts{'q'})) { $sslport = $opts{'q'}; }
 if(defined($opts{'b'})) { $backlog = $opts{'b'}; }
+if(defined($opts{'l'})) { $logfile = $opts{'l'}; }
 if(defined($opts{'s'})) { $ssl  = 1; }
 if(defined($opts{'d'})) { $daemon  = 1; }
 if(defined($opts{'f'})) { $conf    = $opts{'f'}; }

@@ -78,6 +78,7 @@ sub loadconffile {
   my $i = 0;
  CONFPARSE: foreach $line (@lines) {
     $i++;
+    next if ($line =~ m/^#/ or $line =~ m/^\s*$/);
     chomp($line);
 
     # Machine line
