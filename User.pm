@@ -516,33 +516,33 @@ sub handle_names {
   my $waswildcard=0;
 
   if(defined($channels)) {
-      foreach $chan (split(/,/,$channels)) {
-	  $foo=Utils::lookup($chan);
-	  if(defined($foo) && $foo->isa("Channel")) {
-	    unless($foo->ismode('s') &&
-		   !defined($foo->{users}->{$this->nick()}) &&
-		   !$this->ismode('g')) {
-	      push @chanlist, $foo;
-	    }
-	  }
+    foreach $chan (split(/,/,$channels)) {
+      $foo=Utils::lookup($chan);
+      if(defined($foo) && $foo->isa("Channel")) {
+         push @chanlist, $foo;
       }
+    }
   } else {
-      @chanlist=values(%{Utils::channels()});
-      $waswildcard=1;
+    @chanlist=values(%{Utils::channels()});
+    $waswildcard=1;
   }
 
   if($#chanlist==-1) {
-      die "FIXME: need to return empty RPL_ENDOFNAMES for chan not found";
+    die "FIXME: need to return empty RPL_ENDOFNAMES for chan not found";
   }
 
   foreach $chan (@chanlist) {
+    unless($chan->ismode('s') &&
+           !defined($chan->{users}->{$this->nick()}) &&
+	   !$this->ismode('g')) {
       $chan->names($this);
       $this->sendnumeric($this->server,366,"*","End of /NAMES list.");
+    }
   }
 
   if($waswildcard) {
-      # FIXME also print list of lusers on no channel
-      $this->sendnumeric($this->server,366,"*","End of /NAMES list.");
+    # FIXME also print list of lusers on no channel
+    $this->sendnumeric($this->server,366,"*","End of /NAMES list.");
   }
 }
 

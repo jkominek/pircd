@@ -113,10 +113,10 @@ sub setmode {
   my $user = shift;
   my $mode = shift;
   if(!isvalidchannelmode($mode)) {
-    $user->senddata(":".$this->server->{name}." 501 ".$this->nick." :Unknown mode flag \'$mode\'\r\n");
+    $user->senddata(":".$this->{server}->{name}." 501 ".$this->{nick}." :Unknown mode flag \'$mode\'\r\n");
   }
-  if(!$this->{'modes'}->{$mode}) {
-    $this->{'modes'}->{$mode} = 1;
+  if(!$this->{'modes'}->{$mode} || $mode == 'l' || $mode == 'k') {
+    $this->{'modes'}->{$_} = 1; 
     return 1;
   } else {
     return 0;
@@ -346,14 +346,14 @@ sub mode {
 	    }
 	  } elsif($_ eq "l") {
 	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($this->setmode("l"))) {
+	    if(defined($arg) && ($this->setmode($user, "l"))) {
 	      $this->{'limit'} = $arg;
 	      push(@accomplishedset,$_);
 	      push(@accomplishedargs,$arg);
 	    }
 	  } elsif($_ eq "k") {
 	    my $arg = shift(@arguments);
-	    if(defined($arg) && ($this->setmode("k"))) {
+	    if(defined($arg) && ($this->setmode($user, "k"))) {
 	      $this->{'key'} = $arg;
 	      push(@accomplishedset,$_);
 	      push(@accomplishedargs,$arg);
@@ -382,7 +382,7 @@ sub mode {
 	    }
 	  } elsif($_ eq "k") {
 	    my $arg = shift(@arguments);
-	    if(($arg eq $this->{key}) && ($this->unsetmode("k"))) {
+	    if(($arg eq $this->{key}) && ($this->unsetmode($user, "k"))) {
 	      push(@accomplishedunset,$_);
 	      push(@accomplishedargs,$arg);
 	    }
