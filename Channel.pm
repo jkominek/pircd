@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Sun Feb  7 21:26:36 1999 by jay.kominek@colorado.edu
+# Revised: Mon Feb  8 23:38:15 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -451,7 +451,7 @@ sub join {
     push(@banregexps,$regexp);
   }
   if(grep {$mask =~ /$_/} @banregexps) {
-    $user->senddata(":".$user->server->name." 474 ".$user->nick." ".$this->name." :Channot join channel (+b)\r\n");
+    $user->sendnumeric($user->server,474,$this->name,"Cannot join channel (+b)");
     return;
   }
 
@@ -487,7 +487,7 @@ sub join {
   }
 
   $user->{channels}->{$this->lcname()} = $this;
-  $this->{'users'}->{$user->lcnick()}    = $user;
+  $this->{'users'}->{$user->lcnick()}  = $user;
   if(1==scalar keys(%{$this->{'users'}})) {
     $this->setop($user);
   }
@@ -590,6 +590,26 @@ sub invite {
     $target->invite($from,$this->name());
   } else {
     $target->sendnumeric($from->server,482,$this->name(),"You are not a channel operator");
+  }
+}
+
+sub nickchange {
+  my $this = shift;
+  my $user = shift;
+
+  $this->{'users'}->{$user->lcnick()} = $user;
+  delete($this->{'users'}->{Utils::irclc($user->{'oldnick'})});
+
+  my $nick;
+  foreach $nick (keys(%{$this->{'users'}})) {
+    if(($this->{'users'}->{$nick} ne $user)&&($this->{'users'}->{$nick}->islocal())) {
+      $this->{'users'}->{$nick}->senddata(":".$user->{'oldnick'}." NICK :".$user->{'nick'}."\r\n");
+    } # else {
+    #
+    # Nothing needs to be done for non-local users, since the message is
+    # sent to all servers anyways
+    #
+    # }
   }
 }
 
