@@ -569,7 +569,7 @@ sub handle_stats {
 # VERSION
 sub handle_version {
   my $this = shift;
-  $this->sendnumeric($this->server->{name},351,($this->server->version,$this->server->{name}),"some crap");
+  $this->sendnumeric($this->server->{name},351,($this->server->{version},$this->server->{name}),"some crap");
 }
 
 # TIME
