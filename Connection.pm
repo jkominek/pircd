@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Wed May 26 22:36:37 1999 by jay.kominek@colorado.edu
+# Revised: Thu Jul  1 14:21:56 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -25,13 +25,15 @@ sub new {
   my $this  = { };
 
   $this->{'socket'}    = shift;
-  $this->{outbuffer}   = shift;
-  $this->{server}      = shift;
-  $this->{connected} = $this->{last_active} = time();
+  $this->{'outbuffer'} = shift;
+  $this->{'server'}    = shift;
+  $this->{'connected'} = $this->{last_active} = time();
 
+  print $this->{'socket'};
+  print "\n";
   my($port,$iaddr)     = sockaddr_in(getpeername($this->{'socket'}));
-  $this->{host}        = gethostbyaddr($iaddr,AF_INET) || inet_ntoa($iaddr);
-  $this->{host_ip}     = inet_ntoa($iaddr);
+  $this->{'host'}      = gethostbyaddr($iaddr,AF_INET) || inet_ntoa($iaddr);
+  $this->{'host_ip'}   = inet_ntoa($iaddr);
 
   bless($this, $class);
   return $this;
@@ -41,6 +43,11 @@ sub new {
 sub socket {
   my $this = shift;
   return $this->{'socket'};
+}
+
+sub setinitiated {
+  my $this = shift;
+  $this->{'initiated'} = 1;
 }
 
 # Handle some data
@@ -65,7 +72,7 @@ sub handle {
 	    $this->{ready} = 1;
 	  }
 	} else {
-	  $this->senddata(":".$this->server->name." 513 ");
+	  $this->senddata(":".$this->server->name." 513 \r\n");
 	}
       }
       last SWITCH;
@@ -224,7 +231,7 @@ sub senddata {
   my $this = shift;
   my $data = shift;
 
-  $this->{outbuffer}->{$this->{'socket'}} .= join('',$data);
+  $this->{'outbuffer'}->{$this->{'socket'}} .= join('',$data);
 }
 
 1;

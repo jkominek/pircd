@@ -2,7 +2,7 @@
 # 
 # Channel.pm
 # Created: Tue Sep 15 13:49:42 1998 by jay.kominek@colorado.edu
-# Revised: Sat Jun 26 01:07:37 1999 by jay.kominek@colorado.edu
+# Revised: Tue Oct 26 19:23:17 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -35,7 +35,7 @@ sub new {
   $this->{'name'} = shift;
   my %tmp = ();
   $this->{'bans'} = \%tmp;
-  $this->{'creation'} = time();
+  $this->{'creation'} = shift || time();
 
   tie my %usertmp, 'Tie::IRCUniqueHash';
   $this->{'users'} = \%usertmp;
@@ -136,8 +136,8 @@ sub setmode {
   if(!&isvalidchannelmode($mode)) {
     $user->senddata(":".$this->server->name." 501 ".$this->nick." :Unknown mode flag \'$mode\'\r\n");
   }
-  if(!$this->{modes}->{$mode}) {
-    $this->{modes}->{$mode} = 1;
+  if(!$this->{'modes'}->{$mode}) {
+    $this->{'modes'}->{$mode} = 1;
     return 1;
   } else {
     return 0;
@@ -153,8 +153,8 @@ sub unsetmode {
     $user->senddata(":".$this->server->name." 501 ".$this->nick." :Unknown mode flag \'$mode\'\r\n");
     return 0;
   }
-  if($this->{modes}->{$mode}) {
-    $this->{modes}->{$mode} = 0;
+  if($this->{'modes'}->{$mode}) {
+    $this->{'modes'}->{$mode} = 0;
     return 1;
   } else {
     return 0;
@@ -173,8 +173,8 @@ sub setban {
   my $user = shift;
   my $mask = shift;
 
-  if(!defined($this->{bans}->{$mask})) {
-    $this->{bans}->{$mask} = ($user->nick,time());
+  if(!defined($this->{'bans'}->{$mask})) {
+    $this->{'bans'}->{$mask} = ($user->nick,time());
     return $mask;
   } else {
     return 0;
@@ -223,7 +223,7 @@ sub setop {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return 0;
   }
-  if(!defined($this->{users}->{$ret->nick()})) {
+  if(!defined($this->{'users'}->{$ret->nick()})) {
     $user->sendnumeric($user->server,441,$target,$this->name,
 		       "They aren't on the channel");
     return 0;
@@ -245,7 +245,7 @@ sub unsetop {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return 0;
   }
-  if(!defined($this->{users}->{$ret->nick()})) {
+  if(!defined($this->{'users'}->{$ret->nick()})) {
     $user->sendnumeric($user->server,441,$target,$this->name,
 		       "They aren't on the channel");
     return 0;
@@ -279,12 +279,12 @@ sub setvoice {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return 0;
   }
-  if(!defined($this->{users}->{$ret->nick()})) {
+  if(!defined($this->{'users'}->{$ret->nick()})) {
     $user->sendnumeric($user->server,441,$target,$this->name,
 		       "They aren't on the channel");
     return 0;
   }
-  if(!defined($this->{voice}->{$ret->nick()})) {
+  if(!defined($this->{'voice'}->{$ret->nick()})) {
     $this->{voice}->{$ret->nick()} = $user;
     return $ret->nick;
   } else {
@@ -301,7 +301,7 @@ sub unsetvoice {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return 0;
   }
-  if(!defined($this->{users}->{$ret->nick()})) {
+  if(!defined($this->{'users'}->{$ret->nick()})) {
     $user->sendnumeric($user->server,441,$target,$this->name,
 		       "They aren't on the channel");
     return 0;
@@ -328,17 +328,17 @@ sub mode {
 
   if(!defined($modestr)) {
     my(@modes,@args);
-    foreach(keys(%{$this->{modes}})) {
-      if($_ eq "k") {      push(@args,  $this->{key});
-      } elsif($_ eq "l") { push(@args,  $this->{limit});
-      }                    push(@modes, $_);
+    foreach(keys(%{$this->{'modes'}})) {
+      if($_ eq "k") {    push(@args,  $this->{'key'}); }
+      elsif($_ eq "l") { push(@args,  $this->{'limit'}); }
+                         push(@modes, $_);
     }
     $user->sendnumeric($user->server,324,($this->name,"+".join('',@modes),@args),undef);
-    $user->sendnumeric($user->server,329,($this->name,$this->{creation}),undef);
+    $user->sendnumeric($user->server,329,($this->name,$this->{'creation'}),undef);
     return;
   } elsif($modestr eq "b") {
-    foreach(keys(%{$this->{bans}})) {
-      my @bandata = $this->{bans}->{$_};
+    foreach(keys(%{$this->{'bans'}})) {
+      my @bandata = $this->{'bans'}->{$_};
       $user->sendnumeric($user->server,367,($this->name,$_,@bandata),undef);
     }
     $user->sendnumeric($user->server,368,($this->name),"End of Channel Ban List");
@@ -375,14 +375,14 @@ sub mode {
 	  } elsif($_ eq "l") {
 	    my $arg = shift(@arguments);
 	    if(defined($arg) && ($this->setmode("l"))) {
-	      $this->{limit} = $arg;
+	      $this->{'limit'} = $arg;
 	      push(@accomplishedset,$_);
 	      push(@accomplishedargs,$arg);
 	    }
 	  } elsif($_ eq "k") {
 	    my $arg = shift(@arguments);
 	    if(defined($arg) && ($this->setmode("k"))) {
-	      $this->{key} = $arg;
+	      $this->{'key'} = $arg;
 	      push(@accomplishedset,$_);
 	      push(@accomplishedargs,$arg);
 	    }
@@ -435,6 +435,9 @@ sub mode {
 	if($_->islocal()) {
 	  $_->senddata(":".$user->nick."!".$user->username."\@".$user->host." MODE ".$this->name." $changestr\r\n");
 	}
+      }
+      foreach my $server ($user->server->children) {
+	$server->mode($user,$this,$changestr);
       }
     }
   } else {
@@ -541,7 +544,9 @@ sub join {
   }
   $this->names($user);
   $user->sendnumeric($user->server,366,$user->nick,$this->name,"End of /NAMES list.");
-  # Now tell all the servers..
+  foreach my $server ($user->server->children) {
+    $server->join($user,$this);
+  }
 }
 
 # Called by (servers) to forcibly add a user, does no checking.
@@ -560,7 +565,11 @@ sub force_join {
       $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." JOIN :".$this->name."\r\n");
     }
   }
-  # Now tell all the other servers..
+  foreach my $iserver ($Utils::thiserver->children) {
+    if($iserver ne $server) {
+      $iserver->join($user,$this);
+    }
+  }
 }
 
 # This one is called when a user leaves
@@ -569,7 +578,7 @@ sub part {
   my $user = shift;
   my $server = shift;
 
-  delete($user->{channels}->{$this->name()});
+  delete($user->{'channels'}->{$this->name()});
   foreach(keys(%{$this->{'users'}})) {
     if($this->{'users'}->{$_}->islocal()) {
       $this->{'users'}->{$_}->senddata(":".$user->nick."!".$user->username."\@".$user->host." PART :".$this->name."\r\n");
@@ -581,9 +590,11 @@ sub part {
     delete(Utils::channels()->{$this->name()});
   }
 
-  # Hmm. Need some way to determine if
-  # we need to propogate the parting,
-  # based on where it came from.
+  foreach my $iserver ($Utils::thisserver->children) {
+    if($iserver ne $server) {
+      $iserver->part($user,$this);
+    }
+  }
 }
 
 sub kick {
