@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Sun Nov 21 20:23:36 1999 by tek@wiw.org
+# Revised: Thu Dec  2 07:16:02 1999 by tek@wiw.org
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -519,7 +519,9 @@ sub handle_names {
     foreach $chan (split(/,/,$channels)) {
       $foo=Utils::lookup($chan);
       if(defined($foo) && $foo->isa("Channel")) {
-         push @chanlist, $foo;
+	push @chanlist, $foo;
+      } else {
+	$this->sendnumeric($this->server,366,$chan,"End of /NAMES list.");
       }
     }
   } else {
@@ -527,16 +529,15 @@ sub handle_names {
     $waswildcard=1;
   }
 
-  if($#chanlist==-1) {
-    die "FIXME: need to return empty RPL_ENDOFNAMES for chan not found";
-  }
-
   foreach $chan (@chanlist) {
     unless($chan->ismode('s') &&
-           !defined($chan->{users}->{$this->nick()}) &&
+	   !defined($chan->{users}->{$this->nick()}) &&
 	   !$this->ismode('g')) {
       $chan->names($this);
-      $this->sendnumeric($this->server,366,"*","End of /NAMES list.");
+      if(!$waswildcard) {
+	$this->sendnumeric($this->server,366,$chan->{name},
+			   "End of /NAMES list.");
+      }
     }
   }
 
