@@ -2,7 +2,7 @@
 # 
 # Connection.pm
 # Created: Tue Sep 15 14:26:26 1998 by jay.kominek@colorado.edu
-# Revised: Sat Feb  6 10:07:43 1999 by jay.kominek@colorado.edu
+# Revised: Mon Feb  8 16:45:55 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #
 # This program is free software; you can redistribute it and/or modify it
@@ -85,12 +85,12 @@ sub handle {
       my($command,$str) = split(/\s+/,$line);
       $str =~ s/^://;
       if(defined($this->{nick})) {
-	$this->senddata(":$this->{nick} NICK :$str\r\n");
+	$this->senddata(":".$this->{nick}." NICK :$str\r\n");
 	$this->{nick} = $str;
 	last SWITCH;
       }
       if(defined(Utils::lookup($str))) {
-	$this->senddata(":".$this->{server}->name." 433 * $str :Nickname is already in use.\r\n");
+	$this->sendnumeric($this->server,433,$str,"Nickname is already in use.");
 	last SWITCH;
       }
       $this->{nick} = $str;
@@ -180,6 +180,36 @@ sub finalize {
     return $server;
   }
   return undef;
+}
+
+sub sendnumeric {
+  my $this      = shift;
+  my $from      = shift;
+  my $numeric   = shift;
+  my $msg       = pop;
+  my @arguments = @_;
+
+  my $fromstr;
+  if($from->isa("User")) {
+    $fromstr = $from->nick."!".$from->username."\@".$from->host;
+  } elsif($from->isa("Server")) {
+    $fromstr = $from->name;
+  }
+
+  if(length($numeric)<3) {
+    $numeric = ("0" x (3 - length($numeric))).$numeric;
+  }
+
+  if($#arguments>0) {
+    push(@arguments,'');
+  }
+
+  if(defined($msg)) {
+    $msg=":".$msg;
+    $this->senddata(":".join(' ',$fromstr,$numeric,$this->nick,@arguments,$msg)."\r\n");
+  } else {
+    $this->senddata(":".join(' ',$fromstr,$numeric,$this->nick,@arguments)."\r\n");
+  }
 }
 
 sub senddata {
