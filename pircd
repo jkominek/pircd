@@ -2,22 +2,11 @@
 # 
 # pircd
 # Created: Mon Sep 14 12:55:01 1998 by jay.kominek@colorado.edu
-# Revised: Sat Feb  6 12:55:01 1999 by jay.kominek@colorado.edu
+# Revised: Fri Feb 12 12:18:15 1999 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 # 
-# This program is free software; you can redistribute it and/or modify it
-# under the terms of the GNU General Public License as published by the
-# Free Software Foundation; either version 1, or (at your option) any
-# later version.
-# 
-# This program is distributed in the hope that it will be useful, but
-# WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-# General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 675 Mass Ave, Cambridge, MA 02139, USA.
+# Consult the file 'LICENSE' for the complete terms under which you
+# may use this file.
 #
 #####################################################################
 # The Perl Internet Relay Chat Daemon
@@ -222,12 +211,12 @@ for(;;) {
       if($thing->isa("User")) {
 	# They've handed us a User object.
 	my $nick = $thing->lcnick();
-	Utils::users->{$nick} = $thing;
+	Utils::users()->{$nick} = $thing;
 	$connections{$client} = $thing;
       } elsif($thing->isa("Server")) {
 	# They've handed us a Server object.
 	my $name = $thing->lcname();
-	Utils::servers->{$name} = $thing;
+	Utils::servers()->{$name} = $thing;
 	$connections{$client}   = $thing;
       } else {
 	# Wow. Martian finalization. Crazy Stuff.
