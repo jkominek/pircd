@@ -277,7 +277,7 @@ sub donick {
       Utils::users()->{$this->{'nick'}}=$this;
       $this->server->removeuser($this->{'oldnick'});
       $this->server->adduser($this);
-      
+
       # So that no given user will receive the nick change twice -
       # we build this hash and then send the message to those users.
       my %userlist;
