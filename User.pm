@@ -2,7 +2,7 @@
 # 
 # User.pm
 # Created: Tue Sep 15 12:56:51 1998 by jay.kominek@colorado.edu
-# Revised: Thu Jan 27 13:23:16 2000 by jay.kominek@colorado.edu
+# Revised: Thu Jan 27 15:23:22 2000 by jay.kominek@colorado.edu
 # Copyright 1998 Jay F. Kominek (jay.kominek@colorado.edu)
 #  
 # Consult the file 'LICENSE' for the complete terms under which you
@@ -391,8 +391,8 @@ sub handle_whois {
     # from another server.
   } else {
     my @targets = split(/,/,$excess[0]);
-    foreach(@targets) {
-      my $user = Utils::lookup($_);
+    foreach my $target (@targets) {
+      my $user = Utils::lookupuser($target);
       if(defined($user) && isa($user, "User")) {
 	# *** Nick is user@host (Irc Name)
 	$this->sendnumeric($this->server,311,($user->nick,$user->username,$user->host,"*"),$user->ircname);
@@ -431,6 +431,8 @@ sub handle_whois {
 	if($user->islocal()) {
 	  $this->sendnumeric($this->server,317,($user->nick,time()-$user->{'idle_base'},$user->connected),"seconds idle, signon time");
 	}
+      } else {
+	$this->sendnumeric($this->server,401,$target,"No suck nick");
       }
     }
     $this->sendnumeric($this->server,318,$excess[0],"End of /WHOIS list.");
