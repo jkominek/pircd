@@ -745,7 +745,7 @@ sub handle_ping {
   print "ping: @_\n";
   my ($ping,$fill,$server) = @_;
   my $servername = $this->server->name;
-  if($server eq $servername) {
+  if(!defined $server or $server eq $servername) {
       $this->senddata(":$servername PONG $servername :$fill\r\n");
   } else {
       # we should probably forward it
