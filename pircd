@@ -66,6 +66,10 @@ undef %opts;
 
 if($daemon) {
   exit if fork;
+  umask 0;
+  open STDIN, '/dev/null';
+  open STDOUT, '>/dev/null';
+  open STDERR, '>/dev/null';
   $Utils::params{logfile}=$logfile;
   POSIX::setsid() || Utils::syslog('notice',"Cannot start a new session: $!");
 }
