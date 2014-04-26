@@ -31,5 +31,5 @@ At the moment however, all the SSL support does is:
   joining the channel who isn't connected via SSL. It doesn't do anything
   about parties already present on the channel, though.
 
-- Jay Kominek <jkominek@users.sf.net>
+- Jay Kominek <kominek@gmail.com>
   If all else fails, increase the amperage.
