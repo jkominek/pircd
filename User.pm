@@ -113,10 +113,10 @@ sub sendsplash {
   $this->sendnumeric($this->server,1,
    "Welcome to the Internet Relay Network ".$this->nick);
   $this->sendnumeric($this->server,2,
-   "Your host is ".$this->server->{name}.", running version ".$this->server->VERSION);
+   "Your host is ".$this->server->{name}.", running version pircd ".$this->server->VERSION);
   $this->sendnumeric($this->server,3,
    "This server was created ".scalar gmtime($this->server->creation));
-  $this->sendnumeric($this->server,4,($this->server->{name},$this->server->VERSION,"dioswkg","biklmnopstv"),undef);
+  $this->sendnumeric($this->server,4,($this->server->{name},'pircd-'.$this->server->VERSION,"dioswkg","biklmnopstv"),undef);
   # Send them LUSERS output
   $this->handle_lusers("LUSERS");
   $this->privmsgnotice("NOTICE",$this->server,"Highest connection count: ".$Utils::stats{highconnections}." (".$Utils::stats{highclients}." clients)");
