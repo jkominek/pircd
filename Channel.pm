@@ -492,7 +492,12 @@ sub join {
   #do the actual join
   $this->force_join($user,$user->server);
 
-  $user->sendnumeric($user->server,332,$this->{'name'},$this->{'topic'}) if defined $this->{'topic'};
+  if (defined $this->{'topic'}) {
+    $user->sendnumeric($user->server,332,$this->{'name'},$this->{'topic'});
+  } else {
+    $user->sendnumeric($user->server,331,$this->{'name'},'No topic is set');
+  }
+
   $user->sendnumeric($user->server,333,$this->{'name'},$this->{'topicsetter'},$this->{'topicsettime'},undef) if defined $this->{'topicsetter'};
   if(1==scalar keys(%{$this->{'users'}})) {
     $this->setop($user,$user->nick());
