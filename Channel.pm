@@ -17,7 +17,6 @@ use Utils;
 use User;
 use Server;
 use strict;
-use UNIVERSAL qw(isa);
 
 use Tie::IRCUniqueHash;
 
@@ -189,7 +188,7 @@ sub setop {
   my ($this,$user,$target) = @_;
   my $ret    = Utils::lookupuser($target,1);
 
-  if(!(ref($ret) && isa($ret,"User"))) {
+  if(!(ref($ret) && $ret->isa("User"))) {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return undef;
   }
@@ -210,7 +209,7 @@ sub unsetop {
   my ($this,$user,$target) = @_;
   my $ret    = Utils::lookupuser($target,1);
 
-  if(!(ref($ret) && isa($ret,"User"))) {
+  if(!(ref($ret) && $ret->isa("User"))) {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return undef;
   }
@@ -243,7 +242,7 @@ sub setvoice {
   my ($this,$user,$target) = @_;
   my $ret    = Utils::lookupuser($target,1);
 
-  if(!(ref($ret) && isa($ret,"User"))) {
+  if(!(ref($ret) && $ret->isa("User"))) {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return undef;
   }
@@ -265,7 +264,7 @@ sub unsetvoice {
   my $user   = shift;
   my $target = shift;
   my $ret    = Utils::lookupuser($target,1);
-  if(!(ref($ret) && isa($ret,"User"))) {
+  if(!(ref($ret) && $ret->isa("User"))) {
     $user->sendnumeric($user->server,401,$target,"No such nick");
     return undef;
   }
