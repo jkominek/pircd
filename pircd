@@ -13,6 +13,8 @@
 #####################################################################
 
 use strict; # keeps me honest. :)
+use FindBin;
+use lib $FindBin::Bin;
 
 # Various what-not that we need to get things done.
 use POSIX;
