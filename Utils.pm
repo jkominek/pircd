@@ -32,7 +32,7 @@ tie my %channels, 'Tie::IRCUniqueHash';
 
 my $syslogsetup = 0;
 
-$VERSION="pircd-beta-0";
+$VERSION="v0.9";
 %params=(syslog=>0,		# use syslog for log messages?
 	 logfile=>undef,	# filename for log, use STDERR if undef
 	 );
