@@ -18,7 +18,6 @@ package Utils;
 #use Server;
 #use Channel;
 use Sys::Syslog ();
-use UNIVERSAL qw(isa);
 use strict;
 use vars qw($VERSION %params);
 

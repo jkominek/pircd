@@ -17,7 +17,6 @@ use Utils;
 use User;
 use Channel;
 use strict;
-use UNIVERSAL qw(isa);
 
 use Tie::IRCUniqueHash;
 

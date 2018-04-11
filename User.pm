@@ -19,8 +19,6 @@ use Utils;
 use Server;
 use Channel;
 
-use UNIVERSAL qw(isa);
-
 use Tie::IRCUniqueHash;
 
 my $commands = {'PONG'    => sub { },
@@ -195,7 +193,7 @@ sub msg_or_notice {
     } else {
       # ..lookup the associated object..
       my $tmp = Utils::lookup($target);
-      if(isa($tmp,"User")||isa($tmp,"Channel")) {
+      if($tmp->isa("User")||$tmp->isa("Channel")) {
 	  # ..and if it is a user or a channel (since they're the only things
 	  #  that can handle receiving a private message), dispatch it to them.
 	  $tmp->privmsgnotice($string,$this,$msg);
@@ -360,8 +358,8 @@ sub handle_invite {
   
   my $tmpchan = Utils::lookupchannel($channel);
   my $user    = Utils::lookupuser($nick);
-  if($user && isa($user,"User")) {
-    if($tmpchan && isa($tmpchan,"Channel")) {
+  if($user && $user->isa("User")) {
+    if($tmpchan && $tmpchan->isa("Channel")) {
       if(!$this->onchan($tmpchan)) {
 	$this->sendnumeric($this->server,442,$this->{name},$tmpchan->{name},"You're not on that channel");
 	return;
@@ -395,7 +393,7 @@ sub handle_whois {
     my @targets = split(/,/,$excess[0]);
     foreach my $target (@targets) {
       my $user = Utils::lookupuser($target);
-      if(defined($user) && isa($user, "User")) {
+      if(defined($user) && $user->isa("User")) {
 	# *** Nick is user@host (Irc Name)
 	$this->sendnumeric($this->server,311,($user->nick,$user->username,$user->host,"*"),$user->ircname);
 	# *** on channels: #foo @#bar +#baz
@@ -1147,14 +1145,14 @@ sub privmsgnotice {
   my $msg  = shift;
 
   if($this->{'socket'}) {
-    if(isa($from,"User")) {
+    if($from->isa("User")) {
       $this->senddata(":".$from->nick."!".$from->username."\@".$from->host." $string ".$this->nick." :$msg\r\n");
 
       if($this->away() && $string eq "PRIVMSG") {
 	$from->sendnumeric($this->server,301,$this->nick,$this->away);
       }
 
-    } elsif(isa($from,"Server")) {
+    } elsif($from->isa("Server")) {
       $this->senddata(":".$from->{name}." $string ".$this->nick." :$msg\r\n");
     }
   } else {
@@ -1243,7 +1241,7 @@ sub quit {
   # and announce it to local channels
   foreach my $channame (keys(%{$this->{'hasinvitation'}})) {
     my $channel = Utils::lookupchannel($channame);
-    if(ref($channel) && isa($channel,"Channel")) {
+    if(ref($channel) && $channel->isa("Channel")) {
       delete($channel->{'hasinvitation'}->{$this});
     }
   }

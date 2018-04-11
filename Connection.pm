@@ -16,7 +16,6 @@ package Connection;
 use Utils;
 use Socket;
 use strict;
-use UNIVERSAL qw(isa);
 
 # Class constructor
 sub new {
@@ -225,7 +224,7 @@ sub sendreply {
   my($this,$src,@replies)=@_;
   my($reply,$fromstr,$repcode,$data,$destnick);
 
-  ($src,@replies)=(undef,$src,@replies) if(!ref($src) || !isa($src,"User"));
+  ($src,@replies)=(undef,$src,@replies) if(!ref($src) || !$src->isa("User"));
   
   defined($destnick=$this->{nick}) or $destnick='*';
   
