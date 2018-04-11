@@ -424,7 +424,7 @@ sub handle_whois {
 	#  ... or ...
 	# *** Nick is a god-like IRC Operator
 	if($user->ismode('o')) {
-	  $this->sendnumeric($this->server,313,$user->nick,"is ".(($user->ismode('g'))?"a god-like":"an")." IRC Operator\r\n");
+          $this->sendnumeric($this->server,313,$user->nick,"is ".(($user->ismode('g'))?"a god-like":"an")." IRC Operator");
 	}
 	# *** Nick is away: excuse
 	if($user->away()) {
@@ -549,7 +549,7 @@ sub handle_lusers {
   $this->sendnumeric($this->server,251,"There are ".$this->server->users." users and 0 invisible on 1 server(s)");
   $this->sendnumeric($this->server,252,0,"operator(s) online");
   $this->sendnumeric($this->server,253,(scalar keys(%{Utils::channels()})),"channels formed");
-  $this->sendnumeric($this->server,255,"I have ".$this->server->users." user(s) and ".$this->server->children." server(s)\r\n");
+  $this->sendnumeric($this->server,255,"I have ".$this->server->users." user(s) and ".$this->server->children." server(s)");
 }
 
 # LIST
