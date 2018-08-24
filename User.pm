@@ -740,7 +740,6 @@ sub handle_trace {
 # PING
 sub handle_ping {
   my $this = shift;
-  print "ping: @_\n";
   my ($ping,$fill,$server) = @_;
   my $servername = $this->server->name;
   if(!defined $server or $server eq $servername) {
