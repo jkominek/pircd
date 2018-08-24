@@ -193,7 +193,7 @@ sub msg_or_notice {
     } else {
       # ..lookup the associated object..
       my $tmp = Utils::lookup($target);
-      if($tmp->isa("User")||$tmp->isa("Channel")) {
+      if(defined($tmp) && ($tmp->isa("User")||$tmp->isa("Channel"))) {
 	  # ..and if it is a user or a channel (since they're the only things
 	  #  that can handle receiving a private message), dispatch it to them.
 	  $tmp->privmsgnotice($string,$this,$msg);
