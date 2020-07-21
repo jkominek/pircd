@@ -383,14 +383,13 @@ sub handle_invite {
 # WHOIS server.foo.bar nick1,nick2,..,nickn-1,nickn
 # WHOIS nick1,nick2,..,nickn-1,nickn
 sub handle_whois {
-  my $this = shift;
-  my($command,@excess) = split(/\s+/,shift);
+  my ($this,$dummy,@args) = (shift,shift,shift);
 
-  if($excess[1]) {
+  if(length(@args) > 1) {
     # They're trying to request the information
     # from another server.
   } else {
-    my @targets = split(/,/,$excess[0]);
+    my @targets = split(/,/,$args[0]);
     foreach my $target (@targets) {
       my $user = Utils::lookupuser($target);
       if(defined($user) && $user->isa("User")) {
@@ -439,7 +438,7 @@ sub handle_whois {
 	$this->sendnumeric($this->server,401,$target,"No suck nick");
       }
     }
-    $this->sendnumeric($this->server,318,$excess[0],"End of /WHOIS list.");
+    $this->sendnumeric($this->server,318,$args[0],"End of /WHOIS list.");
   }
 }
 
