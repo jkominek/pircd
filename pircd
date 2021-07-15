@@ -139,9 +139,16 @@ for(;;) {
       $client = $client->accept or next;
       $select->add($client);
       &setnonblocking($client);
-      $connections{$client} = Connection->new($client, \%outbuffer,
-                                              $Utils::thisserver);
-      $unfinished{$client}  = $connections{$client};
+      # new connection construction can fail
+      my $newconn = Connection->new($client, \%outbuffer,
+				    $Utils::thisserver);
+      if(defined($newconn)) {
+	  $connections{$client} = $newconn;
+	  $unfinished{$client}  = $newconn;
+      } else {
+	  $select->remove($client);
+	  close($client);
+      }
     } elsif(defined($connections{$client})) {
       # It is not the listening socket, so it is probably a client
       $time = time();

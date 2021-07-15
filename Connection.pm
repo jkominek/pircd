@@ -30,7 +30,12 @@ sub new {
 
   $this->{'ssl'} = $this->{'socket'}->isa("IO::Socket::SSL");
 
-  my($port,$iaddr)     = sockaddr_in(getpeername($this->{'socket'}));
+  #my $port  = $this->{'socket'}->peerport();
+  my $iaddr = $this->{'socket'}->peeraddr();
+  if(length($iaddr)!=4) {
+      print "got zero-length iaddr\n";
+      return undef;
+  }
   $this->{'host'}      = gethostbyaddr($iaddr,AF_INET) || inet_ntoa($iaddr);
   $this->{'host_ip'}   = inet_ntoa($iaddr);
 
