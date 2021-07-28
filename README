@@ -31,9 +31,8 @@ others find them more easily.
 when I first started working on it) wrote me to thank me. I'm glad it
 helped people. I hope it can continue to do so.
 
- For what it's worth, I'm against pull requests. I'll be flattered
-that you're interested, but I almost certainly will not be able to deal
-with them in a timely fashion.
+ I've shifted my stance on pull requests since I originally wrote this
+pre-introduction. I'm not speedy, but I will gladly attempt to process them.
 
 *** Introduction
 
@@ -49,7 +48,7 @@ large if..elsif..else structure, no conversion of the strings into something
 that they are not (numeric values, if I remember how ircu does it).
 
  pircd is now reasonably complete. It lacks STATS output with any relation
-to reality, and interserver communication. As of this writing, it is 3810
+to reality, and interserver communication. As of this README update, it is 3868
 lines long (counting comments and everything). I do not anticipate it getting
 past twice that with the addition of the remaining features. (interserver
 communication being the big one.)
@@ -59,12 +58,11 @@ consult the included file, 'INTERNALS'.
 
 *** SSL
 
- pircd is one of very few IRC servers which support SSL. There are a few
-IRC clients out there which even support SSL, themselves.  We don't yet any
-have sort of support for the verification of SSL certificates, though.
-(Optimally, opers would be required to have a certificate on file with the
-server in order to be allowed gain oper-status. But that is a ways off,
-at this point.)
+SSL support in IRC software is fairly widespread these days. pircd has gone
+from ahead of the curve to probably slightly behind. There are some bugs,
+the server-side cert handling isn't suitable for a Let's Encrypt-world,
+and we can't verify client-side certs for any useful purpose. Help on this
+would be appreciated.
 
 *** Requirements
 
