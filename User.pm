@@ -561,7 +561,8 @@ sub handle_list {
       my @topicdata = $channels{$channel}->topic;
       $this->sendnumeric($this->server,322,
 			 ($channels{$channel}->{name},
-			  scalar $channels{$channel}->users),$topicdata[0]);
+			  scalar $channels{$channel}->users),
+                         ($topicdata[0] or ""));
     }
   }
   $this->sendnumeric($this->server,323,"End of /LIST");
